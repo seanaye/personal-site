@@ -82,6 +82,7 @@ dependencies = [
  "leptos_axum",
  "leptos_meta",
  "leptos_router",
+ "photogrid",
  "thiserror",
 ]
 
@@ -918,11 +919,8 @@ name = "grid"
 version = "0.1.0"
 dependencies = [
  "cool_asserts",
- "image",
  "num",
  "serde",
- "serde_json",
- "url",
 ]
 
 [[package]]
@@ -1868,6 +1866,14 @@ checksum = "e3148f5046208a5d56bcfc03053e3ca6334e51da8dfb19b6cdc8b306fae3283e"
 [[package]]
 name = "photogrid"
 version = "0.1.0"
+dependencies = [
+ "cool_asserts",
+ "grid",
+ "image",
+ "serde",
+ "serde_json",
+ "url",
+]
 
 [[package]]
 name = "pin-project"

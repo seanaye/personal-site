@@ -1,11 +1,9 @@
-use std::sync::Arc;
-
 use crate::error_template::{AppError, ErrorTemplate};
-
-use grid::{PhotoGrid, PhotoLayoutData, ResponsivePhotoGrid};
 use leptos::*;
 use leptos_meta::*;
 use leptos_router::*;
+use photogrid::{PhotoLayoutData, ResponsivePhotoGrid};
+use std::sync::Arc;
 
 pub mod error_template;
 mod style;

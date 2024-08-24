@@ -1,4 +1,5 @@
-use grid::{GridContent, PhotoGrid};
+use grid::GridContent;
+use photogrid::PhotoGrid;
 
 pub trait CssStyle<T> {
     fn style(&self, marker: T) -> String;
