@@ -3,7 +3,7 @@ use std::sync::Arc;
 use app::*;
 use axum::Router;
 use fileserv::file_and_error_handler;
-use grid::ResponsivePhotoGrid;
+use photogrid::ResponsivePhotoGrid;
 use leptos::*;
 use leptos_axum::{generate_route_list, LeptosRoutes};
 

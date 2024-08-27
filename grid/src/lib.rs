@@ -57,7 +57,21 @@ impl FromStr for AspectRatio {
     }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Coord {
+    pub x: usize,
+    pub y: usize,
+}
+
+impl Coord {
+    /// given a bottom right coord, iterate over all coords within the boundary
+    fn iter_area<'a>(&'a self, bottom_right: &'a Self) -> impl Iterator<Item = Coord> + 'a {
+        (self.y..=bottom_right.y)
+            .flat_map(|y| (self.x..=bottom_right.x).map(move |x| Coord { x, y }))
+    }
+}
+
+#[derive(Debug, Clone)]
 pub struct Grid<T> {
     width: usize,
     contents: Vec<T>,
@@ -73,47 +87,130 @@ impl<T> Size for Grid<T> {
     }
 }
 
-#[derive(Clone, Copy, Debug)]
-pub struct Coord {
-    pub x: usize,
-    pub y: usize,
-}
+// #[derive(Debug, Clone, Copy)]
+// enum Operation {
+//     Plus,
+//     Minus,
+// }
+// impl Operation {
+//     fn do(self, a: usize, b: usize) -> usize {
+//         match self {
+//             Operation::Plus => a + b,
+//             Operation::Minus => a - b
 
-impl Coord {
-    /// given a bottom right coord, iterate over all coords within the boundary
-    fn iter_area<'a>(&'a self, bottom_right: &'a Self) -> impl Iterator<Item = Coord> + 'a {
-        (self.y..=bottom_right.y)
-            .flat_map(|y| (self.x..=bottom_right.x).map(move |x| Coord { x, y }))
+//         }
+//     }
+// }
+
+// fn neighbours(Coord { x: this_x, y: this_y }: Coord) -> impl Iterator<Coord> {
+//     [
+//         ((1, Operation::Minus), (1, Operation::Minus)),
+//         ((0, Operation::Minus), (1, Operation::Minus)),
+//         ((1, Operation::Plus), (1, Operation::Minus)),
+//         ((1, Operation::Minus), (0, Operation::Minus)),
+//         ((1, Operation::Plus), (0, Operation::Minus)),
+//         ((1, Operation::Minus), (1, Operation::Plus)),
+//         ((0, Operation::Plus), (1, Operation::Plus)),
+//         ((1, Operation::Plus), (1, Operation::Plus)),
+//     ].map(|(x, y)| {
+//             Coord {}
+//         })
+// }
+
+impl<T> Grid<T> {
+    pub fn as_slice(&self) -> &[T] {
+        &self.contents
+    }
+
+    /// convert to coordinates from usize
+    pub fn to_dimension(&self, idx: usize) -> Coord {
+        let y = idx / self.width;
+        let x = idx % self.width;
+        Coord { x, y }
+    }
+
+    fn to_index(&self, Coord { x, y }: Coord) -> usize {
+        y * self.width + x
+    }
+
+    /// iterate over all coords in the dimension
+    fn dimensions_iter<'a>(
+        &'a self,
+        dimension: &'a impl Size,
+        offset: usize,
+    ) -> impl Iterator<Item = usize> + 'a {
+        dimension
+            .coords_iter()
+            .map(move |coord| self.to_index(coord) + offset)
+    }
+
+    pub fn new(width: usize) -> Self {
+        Self {
+            width,
+            contents: Vec::new(),
+        }
+    }
+
+    fn coord_in_bounds(&self, Coord { x, y }: &Coord) -> bool {
+        x < &self.width && y < &self.height()
+    }
+
+    /// iterator over all adjacent members
+    fn neighbours_coords(&self, coord: Coord) -> impl Iterator<Item = Coord> + '_ {
+        #[derive(Debug, Clone, Copy)]
+        enum Op {
+            Plus,
+            Minus,
+        }
+
+        impl Op {
+            fn do_op(self, a: usize, b: usize) -> Option<usize> {
+                match (a, self) {
+                    (0, Op::Minus) => None,
+                    (_, Op::Minus) => Some(a.saturating_sub(b)),
+                    (_, Op::Plus) => Some(a.saturating_add(b)),
+                }
+            }
+        }
+
+        fn i() -> impl Iterator<Item = (usize, Op)> {
+            [(1usize, Op::Minus), (0usize, Op::Plus), (1usize, Op::Plus)].into_iter()
+        }
+
+        i().flat_map(|y| i().map(move |x| (x, y)))
+            .filter_map(move |((offset_x, op_x), (offset_y, op_y))| {
+                dbg!({
+                    let x = op_x.do_op(coord.x, offset_x)?;
+                    let y = op_y.do_op(coord.y, offset_y)?;
+
+                    Some(Coord { x, y })
+                })
+            })
+            .filter(|x| self.coord_in_bounds(x))
+            .filter(move |x| x != &coord)
+    }
+
+    /// iterator over the index values adjacent to coord
+    fn neighbours_idx(&self, c: Coord) -> impl Iterator<Item = usize> + '_ {
+        self.neighbours_coords(c).map(|coord| self.to_index(coord))
+    }
+
+    /// iterator over the items adjacent to coord
+    pub fn neighbours(&self, c: Coord) -> impl Iterator<Item = &T> {
+        self.neighbours_idx(c)
+            .filter_map(|idx| self.contents.get(idx))
+    }
+
+    pub fn get_mut(&mut self, c: Coord) -> Option<&mut T> {
+        let idx = self.to_index(c);
+        self.contents.get_mut(idx)
+    }
+
+    pub fn get(&self, c: Coord) -> Option<&T> {
+        let idx = self.to_index(c);
+        self.contents.get(idx)
     }
 }
-
-#[derive(Debug, Clone, Copy)]
-pub struct GridContent<T> {
-    data: T,
-    pub size: Dimension,
-    pub origin: Coord,
-}
-
-impl<T> GridContent<T> {
-    pub fn map<U>(self, cb: impl FnOnce(T) -> U) -> GridContent<U> {
-        let GridContent { data, size, origin } = self;
-        let data = cb(data);
-        GridContent { data, size, origin }
-    }
-
-    pub fn grid_area(&self) -> (&Dimension, &Coord) {
-        (&self.size, &self.origin)
-    }
-
-    pub fn content(&self) -> &T {
-        &self.data
-    }
-
-    pub fn height_range(&self) -> Range<usize> {
-        self.origin.y..self.origin.y + self.size.height
-    }
-}
-
 impl<T> Grid<T>
 where
     T: Eq,
@@ -143,6 +240,33 @@ where
     }
 }
 
+impl<T> Grid<T>
+where
+    T: Default,
+{
+    /// extend the contents up to the row
+    /// specified at the index
+    fn extend_to(&mut self, idx: usize) {
+        let Coord { y, .. } = self.to_dimension(idx);
+        let end_coord = (y + 1) * self.width;
+
+        let cur = self.contents.len();
+        let iter = (0..end_coord.saturating_sub(cur)).map(|_| T::default());
+        self.contents.extend(iter)
+    }
+
+    pub fn new_with_height(width: usize, height: usize) -> Self {
+        let mut out = Self::new(width);
+        let idx = out.to_index(Coord {
+            x: 0,
+            y: height - 1,
+        });
+        out.extend_to(idx);
+
+        out
+    }
+}
+
 impl<T> Grid<Option<T>>
 where
     T: Clone,
@@ -156,20 +280,6 @@ where
                 true => Some(idx),
                 false => None,
             })
-    }
-
-    /// extend the contents up to the row
-    /// specified at the index
-    fn extend_to(&mut self, idx: usize) {
-        let Coord { y, .. } = self.to_dimension(idx);
-        let end_coord = (y + 1) * self.width;
-
-        let cur = self.contents.len();
-        let iter = [Option::<T>::None]
-            .into_iter()
-            .cycle()
-            .take(end_coord.saturating_sub(cur));
-        self.contents.extend(iter)
     }
 
     fn does_fit_at(&self, idx: usize, dimension: &impl Size) -> bool {
@@ -225,36 +335,30 @@ impl Grid<Option<usize>> {
     }
 }
 
-impl<T> Grid<T> {
-    /// convert to coordinates from usize
-    fn to_dimension(&self, idx: usize) -> Coord {
-        let y = idx / self.width;
-        let x = idx % self.width;
-        Coord { x, y }
+#[derive(Debug, Clone, Copy)]
+pub struct GridContent<T> {
+    data: T,
+    pub size: Dimension,
+    pub origin: Coord,
+}
+
+impl<T> GridContent<T> {
+    pub fn map<U>(self, cb: impl FnOnce(T) -> U) -> GridContent<U> {
+        let GridContent { data, size, origin } = self;
+        let data = cb(data);
+        GridContent { data, size, origin }
     }
 
-    fn to_index(&self, Coord { x, y }: Coord) -> usize {
-        y * self.width + x
+    pub fn grid_area(&self) -> (&Dimension, &Coord) {
+        (&self.size, &self.origin)
     }
 
-    /// iterate over all coords in the dimension
-    fn dimensions_iter(
-        &self,
-        dimension: &impl Size,
-        offset: usize,
-    ) -> impl Iterator<Item = usize> + '_ {
-        let height = dimension.height();
-        let width = dimension.width();
-        (0..height)
-            .flat_map(move |y| (0..width).map(move |x| Coord { x, y }))
-            .map(move |coord| self.to_index(coord) + offset)
+    pub fn content(&self) -> &T {
+        &self.data
     }
 
-    pub fn new(width: usize) -> Self {
-        Self {
-            width,
-            contents: Vec::new(),
-        }
+    pub fn height_range(&self) -> Range<usize> {
+        self.origin.y..self.origin.y + self.size.height
     }
 }
 
@@ -357,11 +461,19 @@ pub trait Size {
     fn width(&self) -> usize;
     fn height(&self) -> usize;
 
+    /// returns the orientation of the size
     fn orientation(&self) -> Orientation {
         match self.width().cmp(&self.height()) {
             Ordering::Greater | Ordering::Equal => Orientation::Landscape,
             Ordering::Less => Orientation::Portrait,
         }
+    }
+
+    /// iterator over all the coords in the size
+    fn coords_iter(&self) -> impl Iterator<Item = Coord> + 'static {
+        let height = self.height();
+        let width = self.width();
+        (0..height).flat_map(move |y| (0..width).map(move |x| Coord { x, y }))
     }
 }
 
@@ -617,5 +729,47 @@ mod tests {
         let a = 5..10;
         let b = 9..12;
         assert!(a.does_intersect(&b))
+    }
+
+    #[test]
+    fn height_works() {
+        let height = 100;
+        let width = 100;
+        let g = Grid::<usize>::new_with_height(width, height);
+        assert_eq!(g.height(), height);
+        assert_eq!(g.contents.len(), width * height);
+    }
+
+    #[test]
+    fn neighbours_iterates_properly() {
+        let g = Grid::<usize>::new_with_height(100, 100);
+        let out: Vec<_> = g.neighbours_coords(Coord { x: 0, y: 0 }).collect();
+        assert_matches!(
+            out,
+            [
+                Coord { x: 1, y: 0 },
+                Coord { x: 0, y: 1 },
+                Coord { x: 1, y: 1 }
+            ]
+        );
+    }
+
+    #[test]
+    fn neighbours_iterates_properly_2() {
+        let g = Grid::<usize>::new_with_height(100, 100);
+        let out: Vec<_> = g.neighbours_coords(Coord { x: 10, y: 10 }).collect();
+        assert_matches!(
+            out,
+            [
+                Coord { x: 9, y: 9 },
+                Coord { x: 10, y: 9 },
+                Coord { x: 11, y: 9 },
+                Coord { x: 9, y: 10 },
+                Coord { x: 11, y: 10 },
+                Coord { x: 9, y: 11 },
+                Coord { x: 10, y: 11 },
+                Coord { x: 11, y: 11 }
+            ]
+        );
     }
 }

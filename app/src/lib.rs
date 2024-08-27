@@ -1,9 +1,17 @@
 use crate::error_template::{AppError, ErrorTemplate};
-use leptos::*;
+use gloo::{console::log, utils::format::JsValueSerdeExt};
+use grid::{Coord, Size};
+use leptos::{request_animation_frame, *};
 use leptos_meta::*;
 use leptos_router::*;
+use liquid::{LiquidGrid, LiquidGridIter};
+use num_traits::cast::FromPrimitive;
 use photogrid::{PhotoLayoutData, ResponsivePhotoGrid};
-use std::sync::Arc;
+use poline_rs::Poline;
+use std::{f64::consts, sync::Arc};
+use streaming_iterator::StreamingIterator;
+use wasm_bindgen::prelude::*;
+use web_sys::CanvasRenderingContext2d;
 
 pub mod error_template;
 mod style;
@@ -37,7 +45,10 @@ pub fn App() -> impl IntoView {
 /// Renders the home page of your application.
 #[component]
 fn HomePage() -> impl IntoView {
-    view! { <PhotoGridComponent /> }
+    view! {
+        <Canvas />
+        <PhotoGridComponent />
+    }
 }
 
 #[island]
@@ -96,4 +107,99 @@ fn PhotoGridComponent() -> impl IntoView {
             }
         })
         .collect_view()
+}
+
+struct LiquidGridCanvas {
+    colors: Vec<String>,
+    grid: LiquidGridIter,
+    pxPerCell: usize,
+    ctx: CanvasRenderingContext2d,
+}
+
+impl LiquidGridCanvas {
+    fn new(grid: LiquidGridIter, ctx: CanvasRenderingContext2d) -> Self {
+        let p = Poline::builder().num_points(256).build().unwrap();
+        let colors = p.colors_css();
+        Self {
+            colors,
+            grid,
+            pxPerCell: 3,
+            ctx,
+        }
+    }
+
+    fn value_to_color(&self, val: i8) -> &str {
+        let idx = (val as u8).wrapping_add(128);
+        self.colors.get(idx as usize).unwrap()
+    }
+}
+
+trait Draw {
+    fn draw(&mut self) -> Result<(), ()>;
+}
+
+impl Draw for LiquidGridCanvas {
+    fn draw(&mut self) -> Result<(), ()> {
+        self.grid.advance();
+        for coord in self.grid.grid().coords_iter() {
+            let value = self.grid.grid().get(coord).unwrap();
+            let color = self.value_to_color(*value);
+
+            self.ctx.set_fill_style(&JsValue::from_str(color));
+            let x = f64::from_usize((coord.x + 1) * self.pxPerCell).ok_or(())?;
+            let y = f64::from_usize((coord.y + 1) * self.pxPerCell).ok_or(())?;
+            self.ctx.begin_path();
+            self.ctx
+                .arc(
+                    x,
+                    y,
+                    f64::from_usize(self.pxPerCell).ok_or(())?,
+                    0.0,
+                    2.0 * consts::PI,
+                )
+                .unwrap();
+            self.ctx.fill();
+        }
+        Ok(())
+    }
+}
+
+#[island]
+fn Canvas() -> impl IntoView {
+    let canvas_ref: NodeRef<html::Canvas> = create_node_ref();
+
+    create_effect(move |_| {
+        let c = canvas_ref.get().expect("Canvas not loaded");
+
+        let context = c
+            .get_context("2d")
+            .unwrap()
+            .unwrap()
+            .dyn_into::<web_sys::CanvasRenderingContext2d>()
+            .unwrap();
+
+        context.scale(2.0, 2.0).unwrap();
+
+        let mut grid = LiquidGrid::new(100, 100).streaming_iter();
+        // for i in 0..100 {
+        // grid.add_drop(Coord { x: i, y: i });
+        // }
+        grid.add_drop(Coord { x: 50, y: 50 });
+
+        let canvas = LiquidGridCanvas::new(grid, context);
+
+        request_animation_frame(move || {
+            fn helper(mut g: LiquidGridCanvas) {
+                g.draw().unwrap();
+                request_animation_frame(move || helper(g));
+            }
+            helper(canvas)
+        })
+    });
+
+    view! {
+        <div class="p-4">
+            <canvas node_ref=canvas_ref width=1000 height=1000 />
+        </div>
+    }
 }

@@ -4,3 +4,6 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+grid = { path = "../grid" }
+log.workspace = true
+streaming-iterator = "0.1.9"

@@ -12,10 +12,23 @@ leptos_router.workspace = true
 leptos_axum = { workspace = true, optional = true }
 photogrid = { path = "../photogrid" }
 grid = { path = "../grid" }
-
+wasm-bindgen = { workspace = true }
+liquid = { path = "../liquid" }
 http.workspace = true
 cfg-if.workspace = true
 thiserror.workspace = true
+web-sys = { version = "=0.3.70", features = [
+  'CanvasRenderingContext2d',
+  'Document',
+  'Element',
+  'HtmlCanvasElement',
+  'Window',
+] }
+streaming-iterator = "0.1.9"
+poline-rs = { path = "../../poline-rs" }
+num-traits = "0.2.19"
+gloo = "0.11.0"
+log.workspace = true
 
 [features]
 default = []
