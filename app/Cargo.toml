@@ -23,14 +23,24 @@ web-sys = { version = "=0.3.70", features = [
   'Element',
   'HtmlCanvasElement',
   'Window',
+  'ImageData',
 ] }
 streaming-iterator = "0.1.9"
 poline-rs = { path = "../../poline-rs" }
 num-traits = "0.2.19"
 gloo = "0.11.0"
 log.workspace = true
+leptos-use = "0.12.0"
+colorsys = "0.6.7"
 
 [features]
 default = []
 hydrate = ["leptos/hydrate", "leptos_meta/hydrate", "leptos_router/hydrate"]
-ssr = ["leptos/ssr", "leptos_meta/ssr", "leptos_router/ssr", "dep:leptos_axum"]
+ssr = [
+  "leptos/ssr",
+  "leptos_meta/ssr",
+  "leptos_router/ssr",
+  "dep:leptos_axum",
+  "leptos-use/ssr",
+  "leptos-use/axum",
+]

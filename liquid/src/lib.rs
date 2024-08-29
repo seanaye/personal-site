@@ -1,9 +1,9 @@
-use grid::{Coord, Grid, Size};
+use grid::{Coord, Grid, Neighbours, Size};
 use streaming_iterator::StreamingIterator;
 
 #[derive(Debug, Clone)]
 pub struct LiquidGrid {
-    grid: Grid<i8>,
+    grid: Grid<f64>,
 }
 
 impl LiquidGrid {
@@ -17,8 +17,7 @@ impl LiquidGrid {
         LiquidGridIter {
             buf1: self,
             buf2: current,
-            damping_numerator: 9,
-            damping_denominator: 10,
+            damping: 0.95,
         }
     }
 }
@@ -26,29 +25,33 @@ impl LiquidGrid {
 pub struct LiquidGridIter {
     buf1: LiquidGrid,
     buf2: LiquidGrid,
-    damping_numerator: i8,
-    damping_denominator: i8,
+    damping: f64,
 }
 
 impl StreamingIterator for LiquidGridIter {
-    type Item = [i8];
+    type Item = [f64];
 
     fn advance(&mut self) {
         std::mem::swap(&mut self.buf1, &mut self.buf2);
         self.buf1.grid.coords_iter().for_each(|coord| {
-            let mut sum: i8 = 0;
-            for i in self.buf1.grid.neighbours(coord) {
-                sum = sum.saturating_add(*i);
+            let mut sum: f64 = 0.0;
+            for i in self.buf1.grid.neighbours(coord, Neighbours::Plus) {
+                sum += *i;
             }
-            sum = sum.saturating_div(4);
-            sum = sum.saturating_sub(*self.buf2.grid.get(coord).unwrap());
+            sum /= 2.0;
 
-            // apply damping
-            sum = sum.saturating_mul(self.damping_numerator);
-            sum = sum.saturating_div(self.damping_denominator);
-
-            let item = self.buf2.grid.get_mut(coord).unwrap();
-            *item = sum;
+            unsafe {
+                sum -= *self
+                    .buf2
+                    .grid
+                    .with_index(coord, |idx, grid| grid.get_unchecked(idx));
+                sum *= self.damping;
+                let item = self
+                    .buf2
+                    .grid
+                    .with_index_mut(coord, |idx, grid| grid.get_unchecked_mut(idx));
+                *item = sum;
+            }
         });
     }
 
@@ -58,14 +61,18 @@ impl StreamingIterator for LiquidGridIter {
 }
 
 impl LiquidGridIter {
-    pub fn add_drop(&mut self, c: Coord) {
-        let Some(v) = self.buf2.grid.get_mut(c) else {
+    pub fn add_drop(&mut self, c: Coord<usize>) {
+        let Some(v) = self
+            .buf2
+            .grid
+            .with_index_mut(c, |idx, grid| grid.get_mut(idx))
+        else {
             return;
         };
-        *v = i8::MAX;
+        *v = 128.0;
     }
 
-    pub fn grid(&self) -> &Grid<i8> {
+    pub fn grid(&self) -> &Grid<f64> {
         &self.buf1.grid
     }
 }
