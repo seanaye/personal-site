@@ -1,15 +1,7 @@
 use crate::error_template::{AppError, ErrorTemplate};
-use canvas_grid::{CanvasEventManager, CanvasParams, Draw, Events, LiquidGridImageCanvas};
-use grid::{Coord, Dimension};
-use hooks::use_window_size;
 use leptos::*;
-use leptos_dom::helpers::AnimationFrameRequestHandle;
 use leptos_meta::*;
 use leptos_router::*;
-use leptos_use::use_window;
-use num_traits::cast::FromPrimitive;
-use std::sync::Arc;
-use wasm_bindgen::prelude::*;
 
 mod canvas_grid;
 mod components;
