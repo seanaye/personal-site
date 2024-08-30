@@ -14,6 +14,16 @@ pub struct Dimension {
     pub height: usize,
 }
 
+impl Size for Dimension {
+    fn width(&self) -> usize {
+        self.width
+    }
+
+    fn height(&self) -> usize {
+        self.height
+    }
+}
+
 impl Dimension {
     fn aspect_ratio(&self) -> AspectRatio {
         let gcd = num::integer::gcd(self.width, self.height);
