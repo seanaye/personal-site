@@ -39,16 +39,30 @@ pub fn App() -> impl IntoView {
     }
 }
 
-/// Renders the home page of your application.
 #[component]
 fn HomePage() -> impl IntoView {
+    let description = "description";
     view! {
         <Canvas>
             <div class="flex justify-center items-center absolute inset-0">
-                <div class="w-64 bg-white">{"Hello world"}</div>
+                <div class="max-w-3xl mx-auto p-4 mx-6 bg-gray-200 rounded-lg">
+                    <div class="sm:flex">
+                        <div class="flex-shrink-0 flex items-center px-4">
+                            <img
+                                class="h-32 w-32 border border-gray-300 text-gray-300 object-contain rounded-full mx-auto"
+                                src="https://seanaye.ca/avatar.jpg?__frsh_c=c080ff30930a3a1ad7a60e278c943eac618b5b4a"
+                                alt="Headshot of Sean Aye"
+                            />
+                        </div>
+                        <div class="font-mono">
+                            <h1 class="text-xl font-bold text-center sm:text-left">Sean Aye</h1>
+                            <p class="my-4">{description}</p>
+                            <Slider />
+                        </div>
+                    </div>
+                </div>
             </div>
         </Canvas>
-
         <PhotoGridComponent />
     }
 }

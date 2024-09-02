@@ -96,6 +96,7 @@ dependencies = [
  "num-traits",
  "photogrid",
  "poline-rs",
+ "rand",
  "streaming-iterator",
  "thiserror",
  "wasm-bindgen",
@@ -2251,6 +2252,7 @@ dependencies = [
 [[package]]
 name = "poline-rs"
 version = "0.1.0"
+source = "git+https://github.com/seanaye/poline-rs#16a07ce9e8086a5860527794a8ea1757a5a7641e"
 dependencies = [
  "rand",
 ]

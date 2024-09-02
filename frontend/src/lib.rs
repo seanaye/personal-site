@@ -1,3 +1,6 @@
+// this import is required to make islands work
+#[allow(clippy::single_component_path_imports, unused_imports)]
+use app;
 use leptos::*;
 use wasm_bindgen::prelude::wasm_bindgen;
 

@@ -26,12 +26,13 @@ web-sys = { version = "=0.3.70", features = [
   'ImageData',
 ] }
 streaming-iterator = "0.1.9"
-poline-rs = { path = "../../poline-rs" }
+poline-rs = { git = "https://github.com/seanaye/poline-rs" }
 num-traits = "0.2.19"
 gloo = "0.11.0"
 log.workspace = true
 leptos-use = "0.12.0"
 colorsys = "0.6.7"
+rand = "0.8.5"
 
 [features]
 default = []
