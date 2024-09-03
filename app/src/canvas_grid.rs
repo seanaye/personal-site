@@ -1,5 +1,6 @@
 use grid::{Coord, Size};
-use leptos::{html::Canvas, NodeRef, ReadSignal, SignalWithUntracked};
+use leptos::html::Canvas;
+use leptos::prelude::*;
 use liquid::{LiquidGrid, LiquidGridIter};
 use num_traits::FromPrimitive;
 use poline_rs::{fns::PositionFn, Hsl, Poline};
@@ -168,9 +169,9 @@ where
     T: Fn() + 'static,
 {
     fn setup_canvas(ref_node: NodeRef<Canvas>, px_ratio: f64) -> CanvasRenderingContext2d {
-        log::info!("before mount");
         let c = ref_node.get_untracked().expect("Canvas not loaded");
-        log::info!("after");
+        let w = c.width();
+        log::info!("after: {w}");
         let context = c
             .get_context("2d")
             .unwrap()

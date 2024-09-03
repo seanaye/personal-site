@@ -1,11 +1,9 @@
-use std::time::Duration;
-
 use grid::{Coord, Dimension};
-use leptos::*;
-use leptos_dom::helpers::{AnimationFrameRequestHandle, IntervalHandle};
-use leptos_use::use_window;
+use leptos::{html, prelude::*};
+use leptos_use::{core::Size, use_window, use_window_size_with_options, UseWindowSizeOptions};
 use num_traits::FromPrimitive;
 use poline_rs::Hsl;
+use std::time::Duration;
 use wasm_bindgen::prelude::*;
 
 use crate::{
@@ -18,7 +16,6 @@ use crate::{
 
 #[island]
 pub fn Slider() -> impl IntoView {
-    log::info!("before");
     // let slider_update: Option<SliderUpdate> = use_context();
     // log::info!("{:?}", &slider_update);
 
@@ -51,8 +48,8 @@ impl SliderUpdate {
 
 #[island]
 pub fn Canvas(children: Children) -> impl IntoView {
-    let canvas_ref: NodeRef<html::Canvas> = create_node_ref();
-    let canvas_ref_hidden: NodeRef<html::Canvas> = create_node_ref();
+    let canvas_ref: NodeRef<html::Canvas> = NodeRef::new();
+    let canvas_ref_hidden: NodeRef<html::Canvas> = NodeRef::new();
     let size = use_window_size();
     let window = use_window();
     let px_ratio = window
@@ -60,11 +57,11 @@ pub fn Canvas(children: Children) -> impl IntoView {
         .map(|w| w.device_pixel_ratio())
         .unwrap_or_default();
 
-    let (events, set_events) = create_signal(EventState::default());
+    let (events, set_events) = signal(EventState::default());
 
     let clear_events = move || set_events.update(|ev| ev.clear_events());
 
-    let (value, set_value) = create_signal(0.0);
+    let (value, set_value) = signal(0.0);
 
     // provide_context(SliderUpdate {
     //     value,
@@ -72,7 +69,7 @@ pub fn Canvas(children: Children) -> impl IntoView {
     //     set_events,
     // });
 
-    create_effect(
+    Effect::new(
         move |val: Option<(
             Result<AnimationFrameRequestHandle, JsValue>,
             Result<IntervalHandle, JsValue>,
@@ -124,18 +121,18 @@ pub fn Canvas(children: Children) -> impl IntoView {
                     request_animation_frame(move || helper(g));
                 }
 
-                // helper(LiquidGridImageCanvas::new(CanvasParams {
-                //     size: Dimension {
-                //         width: dots_width,
-                //         height: dots_height,
-                //     },
-                //     px_ratio,
-                //     scale_factor: 32,
-                //     visible_canvas: canvas_ref,
-                //     hidden_canvas: canvas_ref_hidden,
-                //     events,
-                //     clear_events,
-                // }))
+                helper(LiquidGridImageCanvas::new(CanvasParams {
+                    size: Dimension {
+                        width: dots_width,
+                        height: dots_height,
+                    },
+                    px_ratio,
+                    scale_factor: 32,
+                    visible_canvas: canvas_ref,
+                    hidden_canvas: canvas_ref_hidden,
+                    events,
+                    clear_events,
+                }))
             });
 
             (handle_2, handle)
@@ -157,7 +154,11 @@ pub fn Canvas(children: Children) -> impl IntoView {
         >
             <canvas
                 node_ref=canvas_ref
-                width=move || size.width.get()
+                width=move || {
+                    let v = size.width.get();
+                    log::info!("width: {}", v);
+                    v
+                }
                 height=move || size.height.get()
                 class="absolute inset-0"
             />

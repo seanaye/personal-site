@@ -1,4 +1,4 @@
-use leptos::{create_signal, ev::resize, on_cleanup, ReadSignal};
+use leptos::{ev::resize, prelude::*};
 use leptos_use::{use_debounce_fn, use_event_listener, use_window};
 
 #[derive(Clone, Copy)]
@@ -8,15 +8,18 @@ pub struct UseWindowSizeReturn {
 }
 pub fn use_window_size() -> UseWindowSizeReturn {
     let window = use_window();
-    let (width, set_width) = create_signal(
+    let (width, set_width) = signal(
         window
             .as_ref()
             .and_then(|w| w.inner_width().ok())
             .and_then(|val| val.as_f64())
+            .inspect(|x| {
+                log::info!("{x:?}");
+            })
             .unwrap_or_default(),
     );
 
-    let (height, set_height) = create_signal(
+    let (height, set_height) = signal(
         window
             .as_ref()
             .and_then(|w| w.inner_height().ok())
@@ -37,11 +40,9 @@ pub fn use_window_size() -> UseWindowSizeReturn {
         500.0,
     );
 
-    let cleanup = use_event_listener(window, resize, move |_| {
+    let _ = use_event_listener(window, resize, move |_| {
         debounced();
     });
-
-    on_cleanup(cleanup);
 
     UseWindowSizeReturn { width, height }
 }
