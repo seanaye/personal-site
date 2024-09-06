@@ -38,7 +38,7 @@ pub fn App() -> impl IntoView {
 
     view! {
         <Html />
-        <Stylesheet id="leptos" href="/pkg/start-axum-workspace.css" />
+        <Stylesheet id="leptos" href="/pkg/personal_site.css" />
 
         // sets the document title
         <Title text="Welcome to Leptos" />

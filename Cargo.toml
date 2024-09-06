@@ -36,8 +36,12 @@ wasm-bindgen = "=0.2.93"
 # A leptos project defines which workspace members
 # that are used together frontend (lib) & server (bin)
 [[workspace.metadata.leptos]]
+
+# this is read by the compiled release binary
+output-name = "personal_site"
+
 # this name is used for the wasm, js and css file names
-name = "start-axum-workspace"
+name = "personal_site"
 
 # the package in the workspace that contains the server binary (binary crate)
 bin-package = "server"
