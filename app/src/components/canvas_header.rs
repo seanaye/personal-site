@@ -168,7 +168,7 @@ pub fn Canvas(children: Children) -> impl IntoView {
                         height: dots_height,
                     },
                     px_ratio,
-                    scale_factor: 32,
+                    scale_factor: 16,
                     visible_canvas: canvas_ref,
                     hidden_canvas: canvas_ref_hidden,
                     events,
@@ -188,8 +188,8 @@ pub fn Canvas(children: Children) -> impl IntoView {
             on:mousemove=move |ev| {
                 let e = Event::AddDrop {
                     coord: Coord {
-                        x: (ev.page_x() / 8) as usize,
-                        y: (ev.page_y() / 8) as usize,
+                        x: (ev.page_x() / 4) as usize,
+                        y: (ev.page_y() / 4) as usize,
                     },
                 };
                 set_events.update(move |v| v.add_event(e));
@@ -197,8 +197,8 @@ pub fn Canvas(children: Children) -> impl IntoView {
             on:click=move |ev| {
                 let e = Event::AddDrop {
                     coord: Coord {
-                        x: (ev.page_x() / 8) as usize,
-                        y: (ev.page_y() / 8) as usize,
+                        x: (ev.page_x() / 4) as usize,
+                        y: (ev.page_y() / 4) as usize,
                     },
                 };
                 set_events.update(move |v| v.add_event(e));
