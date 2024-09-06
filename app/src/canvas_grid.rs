@@ -1,19 +1,20 @@
 use grid::{Coord, Size};
 use leptos::html::Canvas;
 use leptos::prelude::*;
-use liquid::{LiquidGrid, LiquidGridIter};
+use liquid::{LiquidGrid, LiquidGridBuilder};
 use num_traits::FromPrimitive;
 use poline_rs::{fns::PositionFn, Hsl, Poline};
-use streaming_iterator::StreamingIterator;
 use wasm_bindgen::prelude::*;
 use web_sys::{CanvasRenderingContext2d, ImageData};
+
+use crate::log_js_trait::LogJsError;
 
 pub trait PolineManager {
     fn colors(&self) -> &[[u8; 3]];
     fn shift_hue(&mut self, hue: f64);
 }
 
-struct PolineManagerImpl {
+pub struct PolineManagerImpl {
     poline: Poline,
     colors: Vec<[u8; 3]>,
 }
@@ -42,41 +43,47 @@ impl PolineManager for PolineManagerImpl {
     }
 }
 
-pub fn default_poline() -> Poline {
-    Poline::builder()
-        .num_points(256)
-        .anchor_points(vec![
-            Hsl {
-                h: 263.0,
-                s: 0.8,
-                l: 0.2,
-            },
-            Hsl {
-                h: 154.0,
-                s: 0.4,
-                l: 0.9,
-            },
-        ])
-        .set_x_fn(PositionFn::Sinusoidal.get_fn())
-        .set_y_fn(PositionFn::Quadratic.get_fn())
-        .set_z_fn(PositionFn::Sinusoidal.get_fn())
-        .invert_lightness(true)
-        .build()
-        .unwrap()
-}
-
 impl Default for PolineManagerImpl {
     fn default() -> Self {
-        let poline = default_poline();
+        Self::new(0.0)
+    }
+}
+
+impl PolineManagerImpl {
+    pub fn new(hue_offset: f64) -> Self {
+        let poline = Poline::builder()
+            .num_points(256)
+            .anchor_points(vec![
+                Hsl {
+                    h: 263.0,
+                    s: 0.8,
+                    l: 0.2,
+                },
+                Hsl {
+                    h: 154.0,
+                    s: 0.4,
+                    l: 0.9,
+                },
+            ])
+            .set_x_fn(PositionFn::Sinusoidal.get_fn())
+            .set_y_fn(PositionFn::Quadratic.get_fn())
+            .set_z_fn(PositionFn::Sinusoidal.get_fn())
+            .invert_lightness(true)
+            .build()
+            .unwrap();
 
         let colors = Self::regen_colors(&poline);
-        Self { poline, colors }
+        let mut out = Self { poline, colors };
+        if hue_offset != 0.0 {
+            out.shift_hue(hue_offset);
+        }
+        out
     }
 }
 
 pub struct LiquidGridImageCanvas<T> {
     poline: PolineManagerImpl,
-    grid: LiquidGridIter,
+    grid: LiquidGrid,
     ctx: CanvasRenderingContext2d,
     hidden_ctx: CanvasRenderingContext2d,
     events: ReadSignal<EventState>,
@@ -113,7 +120,11 @@ impl EventState {
     /// clears out the events but does not
     /// reset the cancel state
     pub fn clear_events(&mut self) {
-        self.events.clear()
+        self.events.clear();
+    }
+
+    pub fn reset_cancel_state(&mut self) {
+        self.cancel = bool::default()
     }
 }
 
@@ -122,7 +133,7 @@ pub trait CanvasEventManager {
         &mut self,
     ) -> (
         &ReadSignal<EventState>,
-        &mut LiquidGridIter,
+        &mut LiquidGrid,
         &mut impl PolineManager,
     );
     fn clear_events(&mut self);
@@ -162,6 +173,8 @@ pub struct CanvasParams<T, S> {
     pub events: ReadSignal<EventState>,
     /// callback to clear the events
     pub clear_events: T,
+    /// the current hue_offset value
+    pub hue_offset: f64,
 }
 
 impl<T> LiquidGridImageCanvas<T>
@@ -170,8 +183,6 @@ where
 {
     fn setup_canvas(ref_node: NodeRef<Canvas>, px_ratio: f64) -> CanvasRenderingContext2d {
         let c = ref_node.get_untracked().expect("Canvas not loaded");
-        let w = c.width();
-        log::info!("after: {w}");
         let context = c
             .get_context("2d")
             .unwrap()
@@ -197,33 +208,16 @@ where
             hidden_canvas,
             events,
             clear_events,
+            hue_offset,
         } = params;
 
-        let grid = LiquidGrid::new(size.width(), size.height()).streaming_iter();
+        let grid = LiquidGridBuilder::new(size.width(), size.height()).build();
 
-        LiquidGridImageCanvas::new_from_grid_iter(
-            grid,
-            Self::setup_canvas(visible_canvas, px_ratio),
-            Self::setup_canvas(hidden_canvas, px_ratio),
-            scale_factor,
-            events,
-            clear_events,
-        )
-    }
-
-    fn new_from_grid_iter(
-        grid: LiquidGridIter,
-        ctx: CanvasRenderingContext2d,
-        hidden_ctx: CanvasRenderingContext2d,
-        scale: usize,
-        events: ReadSignal<EventState>,
-        clear_events: T,
-    ) -> Self {
         let width = grid.grid().width();
         let height = grid.grid().height();
 
-        let scaled_width = width * scale;
-        let scaled_height = height * scale;
+        let scaled_width = width * scale_factor;
+        let scaled_height = height * scale_factor;
 
         // RGBA for each pixel
         let image_buffer = vec![u8::MAX; width * height * 4];
@@ -231,10 +225,10 @@ where
         (clear_events)();
 
         Self {
-            poline: PolineManagerImpl::default(),
-            hidden_ctx,
+            poline: PolineManagerImpl::new(hue_offset),
+            hidden_ctx: Self::setup_canvas(hidden_canvas, px_ratio),
             grid,
-            ctx,
+            ctx: Self::setup_canvas(visible_canvas, px_ratio),
             events,
             clear_events,
             image_buffer,
@@ -272,7 +266,7 @@ where
         &mut self,
     ) -> (
         &ReadSignal<EventState>,
-        &mut LiquidGridIter,
+        &mut LiquidGrid,
         &mut impl PolineManager,
     ) {
         (&self.events, &mut self.grid, &mut self.poline)
@@ -300,14 +294,10 @@ where
             self.grid.grid().width() as u32,
             self.grid.grid().height() as u32,
         )
-        .map_err(|e| {
-            gloo::console::log!(e);
-        })?;
+        .log_and_consume()?;
         self.hidden_ctx
             .put_image_data(&data, 0.0, 0.0)
-            .map_err(|e| {
-                gloo::console::log!(e);
-            })?;
+            .log_and_consume()?;
         self.ctx
             .draw_image_with_html_canvas_element_and_dw_and_dh(
                 &self.hidden_ctx.canvas().ok_or(())?,
@@ -316,9 +306,7 @@ where
                 self.f64_scaled_width,
                 self.f64_scaled_height,
             )
-            .map_err(|e| {
-                gloo::console::log!(e);
-            })?;
+            .log_and_consume()?;
         Ok(())
     }
 }

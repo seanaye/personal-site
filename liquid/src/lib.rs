@@ -1,37 +1,34 @@
 use grid::{Coord, Grid, Neighbours, Size};
-use streaming_iterator::StreamingIterator;
 
 #[derive(Debug, Clone)]
-pub struct LiquidGrid {
+pub struct LiquidGridBuilder {
     grid: Grid<f64>,
 }
 
-impl LiquidGrid {
+impl LiquidGridBuilder {
     pub fn new(width: usize, height: usize) -> Self {
         let grid = Grid::new_with_height(width, height);
         Self { grid }
     }
 
-    pub fn streaming_iter(self) -> LiquidGridIter {
+    pub fn build(self) -> LiquidGrid {
         let current = self.clone();
-        LiquidGridIter {
+        LiquidGrid {
             buf1: self,
             buf2: current,
-            damping: 0.95,
+            damping: 0.97,
         }
     }
 }
 
-pub struct LiquidGridIter {
-    buf1: LiquidGrid,
-    buf2: LiquidGrid,
+pub struct LiquidGrid {
+    buf1: LiquidGridBuilder,
+    buf2: LiquidGridBuilder,
     damping: f64,
 }
 
-impl StreamingIterator for LiquidGridIter {
-    type Item = [f64];
-
-    fn advance(&mut self) {
+impl LiquidGrid {
+    pub fn advance(&mut self) {
         std::mem::swap(&mut self.buf1, &mut self.buf2);
         self.buf1.grid.coords_iter().for_each(|coord| {
             let mut sum: f64 = 0.0;
@@ -54,13 +51,6 @@ impl StreamingIterator for LiquidGridIter {
             }
         });
     }
-
-    fn get(&self) -> Option<&Self::Item> {
-        Some(self.buf1.grid.as_slice())
-    }
-}
-
-impl LiquidGridIter {
     pub fn add_drop(&mut self, c: Coord<usize>) {
         let Some(v) = self
             .buf2

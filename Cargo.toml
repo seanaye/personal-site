@@ -105,3 +105,10 @@ lib-features = []
 #
 # Optional. Defaults to false.
 lib-default-features = false
+
+# [patch.crates-io]
+# leptos = { git = "https://github.com/leptos-rs/leptos" }
+# tachys = { git = "https://github.com/leptos-rs/leptos" }
+# leptos_router = { git = "https://github.com/leptos-rs/leptos" }
+# leptos_integration_utils = { git = "https://github.com/leptos-rs/leptos" }
+# leptos_axum = { git = "https://github.com/leptos-rs/leptos" }
