@@ -1,8 +1,7 @@
 use grid::{Coord, Dimension};
 use leptos::{html, prelude::*};
-use leptos_use::{core::Size, use_window, use_window_size_with_options, UseWindowSizeOptions};
+use leptos_use::use_window;
 use num_traits::FromPrimitive;
-use poline_rs::Hsl;
 use std::time::Duration;
 use wasm_bindgen::prelude::*;
 
@@ -83,13 +82,18 @@ pub fn Canvas(children: Children) -> impl IntoView {
         .as_ref()
         .map(|w| w.device_pixel_ratio())
         .unwrap_or_default();
+    let px_ratio_usize = usize::from_f64(px_ratio).unwrap_or(1);
 
     let (events, set_events) = signal(EventState::default());
 
     let clear_events = move || set_events.update(|ev| ev.clear_events());
 
     let (cancel_count, set_cancel_count) = signal(0);
-    let (hue_value, set_hue_value) = signal(0.0);
+
+    let SliderHue {
+        hue_value,
+        set_hue_value,
+    } = use_provide_slider_hue();
 
     provide_context(SliderUpdate {
         hue_value,
@@ -122,9 +126,9 @@ pub fn Canvas(children: Children) -> impl IntoView {
 
         set_events.set(EventState::default());
 
-        let dw = size.width.get_untracked() / px_ratio / 4.0;
+        let dw = size.width.get_untracked() / px_ratio;
         let dots_width = usize::from_f64(dw).unwrap();
-        let dh = size.height.get_untracked() / px_ratio / 4.0;
+        let dh = size.height.get_untracked() / px_ratio;
         let dots_height = usize::from_f64(dh).unwrap();
 
         let handle = set_interval_with_handle(
@@ -168,7 +172,7 @@ pub fn Canvas(children: Children) -> impl IntoView {
                         height: dots_height,
                     },
                     px_ratio,
-                    scale_factor: 16,
+                    scale_factor: px_ratio_usize,
                     visible_canvas: canvas_ref,
                     hidden_canvas: canvas_ref_hidden,
                     events,
@@ -188,8 +192,8 @@ pub fn Canvas(children: Children) -> impl IntoView {
             on:mousemove=move |ev| {
                 let e = Event::AddDrop {
                     coord: Coord {
-                        x: (ev.page_x() / 4) as usize,
-                        y: (ev.page_y() / 4) as usize,
+                        x: (ev.page_x() / px_ratio_usize as i32) as usize,
+                        y: (ev.page_y() / px_ratio_usize as i32) as usize,
                     },
                 };
                 set_events.update(move |v| v.add_event(e));
@@ -197,8 +201,8 @@ pub fn Canvas(children: Children) -> impl IntoView {
             on:click=move |ev| {
                 let e = Event::AddDrop {
                     coord: Coord {
-                        x: (ev.page_x() / 4) as usize,
-                        y: (ev.page_y() / 4) as usize,
+                        x: (ev.page_x() / px_ratio_usize as i32) as usize,
+                        y: (ev.page_y() / px_ratio_usize as i32) as usize,
                     },
                 };
                 set_events.update(move |v| v.add_event(e));
@@ -210,7 +214,6 @@ pub fn Canvas(children: Children) -> impl IntoView {
                 height=move || size.height.get()
                 class="absolute inset-0"
             />
-            <div>{move || size.width.get()}</div>
             {children()}
             <canvas
                 node_ref=canvas_ref_hidden
@@ -239,7 +242,7 @@ pub fn DebugPoline() -> impl IntoView {
                             .iter()
                             .map(|[r, g, b]| {
                                 let style = format!("background-color: rgb({r}, {g}, {b});");
-                                view! { <div style=style class="w-8 h-8"></div> }
+                                view! { <div style=style class="w-4 h-4"></div> }
                             })
                             .collect_view()
                     })

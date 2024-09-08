@@ -68,11 +68,12 @@ fn SliderProvider(children: Children) -> impl IntoView {
 #[component]
 fn HomePage() -> impl IntoView {
     let description = "code.photography.music";
-    let description_2 = "senior rust developer at 1Password";
+    let description_2 = "Senior Rust Developer at 1Password";
     let shadow = "box-shadow: rgba(68, 64, 60, 0.8) 2rem 2rem;";
 
     view! {
         <Canvas>
+            <DebugPoline />
             <div class="flex justify-center items-center absolute inset-0">
                 <div class="max-w-3xl mx-auto p-4 mx-6 bg-white" style=shadow>
                     <div class="sm:flex">
