@@ -24,7 +24,7 @@ pub fn shell(options: LeptosOptions) -> impl IntoView {
                 <HydrationScripts options islands=true />
                 <MetaTags />
             </head>
-            <body>
+            <body class="overflow-hidden">
                 <App />
             </body>
         </html>
@@ -37,11 +37,10 @@ pub fn App() -> impl IntoView {
     provide_meta_context();
 
     view! {
-        <Html />
         <Stylesheet id="leptos" href="/pkg/personal_site.css" />
 
         // sets the document title
-        <Title text="Welcome to Leptos" />
+        <Title text="seanaye.ca" />
 
         // content for this welcome page
         <Router>
@@ -60,7 +59,7 @@ pub fn App() -> impl IntoView {
 
 #[component]
 fn HomePage() -> impl IntoView {
-    let description = "code.photography.music";
+    let description = "code|photography|music";
     let description_2 = "Senior Rust Developer at 1Password";
     let shadow = "box-shadow: rgba(68, 64, 60, 0.8) 2rem 2rem;";
 

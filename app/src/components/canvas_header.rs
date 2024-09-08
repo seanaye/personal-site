@@ -10,7 +10,7 @@ use crate::{
         CanvasEventManager, CanvasParams, Draw, Event, EventState, LiquidGridImageCanvas,
         PolineManager, PolineManagerImpl,
     },
-    hooks::use_window_size,
+    hooks::{use_window_size, UseWindowSizeReturn},
 };
 
 #[island]
@@ -72,11 +72,24 @@ pub fn expect_slider_hue() -> SliderHue {
     expect_context()
 }
 
+// fn use_max(input: ReadSignal<f64>) -> Signal<f64> {
+//     let prev_max = input.get_untracked();
+//     let (prev_max, set_prev_max) = signal(prev_max);
+//     Effect::new(move || {
+//         let cur = input.get();
+//         if cur > *prev_max.read_untracked() {
+//             set_prev_max.set(cur);
+//         }
+//     });
+
+//     Signal::derive(move || input.get().max(prev_max.get()))
+// }
+
 #[island]
 pub fn Canvas(children: Children) -> impl IntoView {
     let canvas_ref: NodeRef<html::Canvas> = NodeRef::new();
     let canvas_ref_hidden: NodeRef<html::Canvas> = NodeRef::new();
-    let size = use_window_size();
+    let UseWindowSizeReturn { width, height } = use_window_size();
     let window = use_window();
     let px_ratio = window
         .as_ref()
@@ -102,8 +115,8 @@ pub fn Canvas(children: Children) -> impl IntoView {
     });
 
     Effect::new(move |val: Option<bool>| {
-        size.width.read();
-        size.height.read();
+        width.with(|_| {});
+        height.with(|_| {});
         if val.is_some() {
             set_events.update(|e| e.cancel())
         }
@@ -126,9 +139,9 @@ pub fn Canvas(children: Children) -> impl IntoView {
 
         set_events.set(EventState::default());
 
-        let dw = size.width.get_untracked() / px_ratio;
+        let dw = width.get_untracked() / px_ratio;
         let dots_width = usize::from_f64(dw).unwrap();
-        let dh = size.height.get_untracked() / px_ratio;
+        let dh = height.get_untracked() / px_ratio;
         let dots_height = usize::from_f64(dh).unwrap();
 
         let handle = set_interval_with_handle(
@@ -210,15 +223,15 @@ pub fn Canvas(children: Children) -> impl IntoView {
         >
             <canvas
                 node_ref=canvas_ref
-                width=move || size.width.get()
-                height=move || size.height.get()
+                width=move || width.get()
+                height=move || height.get()
                 class="absolute inset-0"
             />
             {children()}
             <canvas
                 node_ref=canvas_ref_hidden
-                width=move || size.width.get()
-                height=move || size.height.get()
+                width=move || width.get()
+                height=move || height.get()
                 class="hidden"
             />
         </div>
