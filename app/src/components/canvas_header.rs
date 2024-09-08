@@ -144,7 +144,7 @@ pub fn Canvas(children: Children) -> impl IntoView {
                     })
                 });
             },
-            Duration::from_millis(3500),
+            Duration::from_millis(2000),
         );
         let hue_offset = hue_value.get_untracked();
 
@@ -189,7 +189,7 @@ pub fn Canvas(children: Children) -> impl IntoView {
     view! {
         <div
             class="relative w-screen h-screen"
-            on:mousemove=move |ev| {
+            on:pointermove=move |ev| {
                 let e = Event::AddDrop {
                     coord: Coord {
                         x: (ev.page_x() / px_ratio_usize as i32) as usize,
@@ -242,7 +242,7 @@ pub fn DebugPoline() -> impl IntoView {
                             .iter()
                             .map(|[r, g, b]| {
                                 let style = format!("background-color: rgb({r}, {g}, {b});");
-                                view! { <div style=style class="w-4 h-4"></div> }
+                                view! { <div style=style class="w-2 h-2 md:w-4 md:h-4"></div> }
                             })
                             .collect_view()
                     })
