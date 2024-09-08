@@ -58,13 +58,6 @@ pub fn App() -> impl IntoView {
     }
 }
 
-#[island]
-fn SliderProvider(children: Children) -> impl IntoView {
-    let _ = use_provide_slider_hue();
-
-    children()
-}
-
 #[component]
 fn HomePage() -> impl IntoView {
     let description = "code.photography.music";
@@ -99,7 +92,6 @@ fn HomePage() -> impl IntoView {
                 </div>
             </div>
         </Canvas>
-        <PhotoGridComponent />
     }
 }
 
