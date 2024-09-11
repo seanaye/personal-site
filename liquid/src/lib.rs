@@ -16,7 +16,7 @@ impl LiquidGridBuilder {
         LiquidGrid {
             buf1: self,
             buf2: current,
-            damping: 0.97,
+            damping: 0.99,
         }
     }
 }
