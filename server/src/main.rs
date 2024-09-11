@@ -1,13 +1,32 @@
-use std::sync::Arc;
-
+use std::{collections::HashMap, sync::Arc};
 use app::*;
 use axum::Router;
-// use fileserv::file_and_error_handler;
-use photogrid::ResponsivePhotoGrid;
-use leptos::prelude::*;
+use bucket::{get_bucket, BucketAccess};
+use grid::{Dimension, FromAspectRatio, RoundedAspectRatio};
+use photogrid::{PhotoLayoutData, ResponsivePhotoGrid, SrcSet};
+use leptos::{attr::Srcset, prelude::*};
 use leptos_axum::{generate_route_list, LeptosRoutes};
 
-// pub mod fileserv;
+mod bucket;
+
+async fn build_photo_grid() -> anyhow::Result<ResponsivePhotoGrid<PhotoLayoutData>> {
+    let bucket = BucketAccess::new(get_bucket()?);
+
+    let data = bucket.list_resized().await?;
+
+    let photo_data: Vec<_> = data.into_iter().filter_map(|(key, value)| {
+        let aspect_ratio = value.first()?.aspect_ratio.parse().ok()?;
+        Some(PhotoLayoutData {
+            aspect_ratio,
+            srcs: value.into_iter().map(|c| SrcSet { dimensions: Dimension { width: aspect_ratio.width, height: aspect_ratio.height } , url: c.url }).collect(),
+            metadata: HashMap::new(),
+        })
+    }).collect();
+
+    Ok(ResponsivePhotoGrid::new(photo_data, [3, 4, 5, 8, 12], |x| {
+        RoundedAspectRatio::<2>::from_aspect_ratio(&x.aspect_ratio)
+    }))
+}
 
 #[tokio::main]
 async fn main() {
@@ -22,7 +41,7 @@ async fn main() {
     let leptos_options = conf.leptos_options;
     let addr = leptos_options.site_addr;
     let routes = generate_route_list(App);
-    let grid = Arc::new(ResponsivePhotoGrid::default());
+    let grid = Arc::new(build_photo_grid().await.unwrap());
 
     // build our application with a route
     let app = Router::new()

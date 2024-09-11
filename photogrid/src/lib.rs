@@ -3,7 +3,6 @@ use std::{collections::HashMap, ops::Not};
 use grid::{
     AspectRatio, Dimension, FromAspectRatio, Grid, GridContent, Intersect, RoundedAspectRatio, Size,
 };
-use image::DynamicImage;
 use serde::{Deserialize, Serialize};
 use url::Url;
 
@@ -25,18 +24,6 @@ pub struct PhotoLayoutData {
 pub struct PhotoGrid<T> {
     pub grid: Vec<GridContent<T>>,
     pub width: usize,
-}
-
-struct ImageWrapper(DynamicImage);
-
-impl Size for ImageWrapper {
-    fn width(&self) -> usize {
-        self.0.width() as usize
-    }
-
-    fn height(&self) -> usize {
-        self.0.height() as usize
-    }
 }
 
 impl<T> PhotoGrid<T>

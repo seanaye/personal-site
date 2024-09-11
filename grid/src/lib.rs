@@ -38,8 +38,8 @@ impl Dimension {
 
 #[derive(Debug, Serialize, Deserialize, Clone, Copy)]
 pub struct AspectRatio {
-    width: usize,
-    height: usize,
+    pub width: usize,
+    pub height: usize,
 }
 
 impl Display for AspectRatio {
