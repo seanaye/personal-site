@@ -1,6 +1,6 @@
 use grid::{Coord, Dimension};
 use leptos::{html, prelude::*};
-use leptos_use::use_window;
+use leptos_use::{use_element_size, use_window, UseElementSizeReturn};
 use num_traits::FromPrimitive;
 use std::time::Duration;
 use wasm_bindgen::prelude::*;
@@ -10,7 +10,7 @@ use crate::{
         CanvasEventManager, CanvasParams, Draw, Event, EventState, LiquidGridImageCanvas,
         PolineManager, PolineManagerImpl,
     },
-    hooks::{use_window_size, UseWindowSizeReturn},
+    hooks::{use_elem_size, UseWindowSizeReturn},
 };
 
 #[island]
@@ -87,9 +87,12 @@ pub fn expect_slider_hue() -> SliderHue {
 
 #[island]
 pub fn Canvas(children: Children) -> impl IntoView {
+    let outer_size: NodeRef<html::Div> = NodeRef::new();
     let canvas_ref: NodeRef<html::Canvas> = NodeRef::new();
     let canvas_ref_hidden: NodeRef<html::Canvas> = NodeRef::new();
-    let UseWindowSizeReturn { width, height } = use_window_size();
+
+    let UseWindowSizeReturn { width, height } = use_elem_size(outer_size);
+
     let window = use_window();
     let px_ratio = window
         .as_ref()
@@ -201,7 +204,8 @@ pub fn Canvas(children: Children) -> impl IntoView {
 
     view! {
         <div
-            class="relative w-screen h-screen"
+            node_ref=outer_size
+            class="relative h-dvh w-dvw"
             on:pointermove=move |ev| {
                 let e = Event::AddDrop {
                     coord: Coord {
@@ -247,7 +251,7 @@ pub fn DebugPoline() -> impl IntoView {
     });
 
     view! {
-        <div class="pointer-events-none absolute left-0 top-0 h-screen flex flex-wrap flex-col">
+        <div class="pointer-events-none absolute left-0 top-0 h-dvh flex flex-wrap flex-col">
             {move || {
                 poline
                     .with(|p| {

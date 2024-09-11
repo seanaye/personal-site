@@ -1,25 +1,30 @@
-use leptos::{ev::resize, prelude::*};
+use leptos::{ev::resize, html::Div, prelude::*};
 use leptos_use::{use_debounce_fn, use_event_listener, use_window};
+use num_traits::FromPrimitive;
 
 #[derive(Clone, Copy)]
 pub struct UseWindowSizeReturn {
     pub width: ReadSignal<f64>,
     pub height: ReadSignal<f64>,
 }
-pub fn use_window_size() -> UseWindowSizeReturn {
+pub fn use_elem_size(el: NodeRef<Div>) -> UseWindowSizeReturn {
     let window = use_window();
     let (width, set_width) = signal(0.0);
 
     let (height, set_height) = signal(0.0);
 
     let update = move || {
-        let window = use_window();
-        let Some(w) = window.as_ref() else {
-            return;
-        };
+        let d = el.get_untracked().expect("div not loaded");
 
-        set_width(w.inner_width().unwrap().as_f64().unwrap());
-        set_height(w.inner_height().unwrap().as_f64().unwrap());
+        let w = f64::from_i32(d.client_width()).unwrap();
+        let h = f64::from_i32(d.client_height()).unwrap();
+
+        if width.get_untracked() != w {
+            set_width(w);
+        }
+        if height.get_untracked() != h {
+            set_height(h)
+        }
     };
 
     Effect::new(move |_| update());
