@@ -24,7 +24,7 @@ pub fn shell(options: LeptosOptions) -> impl IntoView {
                 <HydrationScripts options islands=true />
                 <MetaTags />
             </head>
-            <body class="overflow-hidden">
+            <body>
                 <App />
             </body>
         </html>
@@ -102,6 +102,7 @@ fn HomePage() -> impl IntoView {
                 </div>
             </div>
         </Canvas>
+        <PhotoGridComponent />
     }
 }
 

@@ -10,7 +10,7 @@ use leptos_axum::{generate_route_list, LeptosRoutes};
 mod bucket;
 
 async fn build_photo_grid() -> anyhow::Result<ResponsivePhotoGrid<PhotoLayoutData>> {
-    let bucket = BucketAccess::new(get_bucket()?);
+    let bucket = BucketAccess::new(get_bucket()?, "cdn.seanaye.ca");
 
     let data = bucket.list_resized().await?;
 
@@ -31,6 +31,7 @@ async fn build_photo_grid() -> anyhow::Result<ResponsivePhotoGrid<PhotoLayoutDat
 #[tokio::main]
 async fn main() {
     simple_logger::init_with_level(log::Level::Debug).expect("couldn't initialize logging");
+    dotenv::dotenv().unwrap();
 
     // Setting get_configuration(None) means we'll be using cargo-leptos's env values
     // For deployment these variables are:
