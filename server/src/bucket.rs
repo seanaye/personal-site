@@ -60,10 +60,13 @@ impl<'a> BucketAccess<'a> {
                     .map(|v| std::mem::take(&mut v.prefix))
             })
             .collect();
-        for prefix in common {
-            let next = self.list_recursive(prefix).await?;
-            res.extend(next);
-        }
+        stream::iter(common).for_each_concurrent(
+            6,
+            |prefix| async {
+                let Ok(next) = self.list_recursive(prefix).await else { return; };
+                res.extend(next);
+            },
+        ).await;
 
         Ok(res)
     }
