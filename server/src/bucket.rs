@@ -1,10 +1,10 @@
 use std::collections::HashMap;
 
-use futures::{stream, Stream, StreamExt};
+use futures::{stream, StreamExt};
+use grid::AspectRatio;
 use itertools::Itertools;
 use s3::{
-    bucket::Bucket, bucket_ops::ListBucketsResponse, creds::Credentials, error::S3Error,
-    serde_types::ListBucketResult, Region,
+    bucket::Bucket, creds::Credentials, error::S3Error, serde_types::ListBucketResult, Region,
 };
 use url::Url;
 
@@ -39,7 +39,7 @@ pub struct BucketAccess<'a> {
 #[derive(Debug)]
 pub struct ResizedImage {
     pub url: Url,
-    pub aspect_ratio: String,
+    pub aspect_ratio: AspectRatio,
 }
 
 impl<'a> BucketAccess<'a> {
@@ -60,15 +60,15 @@ impl<'a> BucketAccess<'a> {
                     .map(|v| std::mem::take(&mut v.prefix))
             })
             .collect();
-        stream::iter(common).for_each_concurrent(
-            6,
-            |prefix| async {
-                let Ok(next) = self.list_recursive(prefix).await else { return; };
-                res.extend(next);
-            },
-        ).await;
-
-        Ok(res)
+        stream::iter(common)
+            .then(|prefix| async move { self.list_recursive(prefix).await })
+            .collect::<Vec<_>>()
+            .await
+            .into_iter()
+            .try_fold(res, |mut acc, cur| {
+                acc.extend(cur?);
+                Ok(acc)
+            })
     }
 
     pub async fn list_resized(&self) -> anyhow::Result<HashMap<String, Vec<ResizedImage>>> {
@@ -88,13 +88,13 @@ impl<'a> BucketAccess<'a> {
                     host.push_str(&c.key);
                     host.replace_range(0..0, "https://");
                     let mut url: Url = host.parse().ok()?;
-                    url.set_host(Some(self.host));
+                    url.set_host(Some(self.host)).ok()?;
                     let (head, _status) = self.bucket.head_object(c.key).await.ok()?;
                     let metadata = &mut head.metadata?;
-                    let aspect_ratio = metadata.get_mut("aspect-ratio")?;
+                    let aspect_ratio: AspectRatio = metadata.get_mut("aspect-ratio")?.parse().ok()?;
                     Some(ResizedImage {
                         url,
-                        aspect_ratio: std::mem::take(aspect_ratio),
+                        aspect_ratio,
                     })
                 })
                 .collect()

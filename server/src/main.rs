@@ -2,7 +2,7 @@ use app::*;
 use axum::Router;
 use bucket::{get_bucket, BucketAccess};
 use grid::{Dimension, FromAspectRatio, RoundedAspectRatio};
-use leptos::{attr::Srcset, prelude::*};
+use leptos::{prelude::*};
 use leptos_axum::{generate_route_list, LeptosRoutes};
 use photogrid::{PhotoLayoutData, ResponsivePhotoGrid, SrcSet};
 use std::{collections::HashMap, sync::Arc};
@@ -16,16 +16,16 @@ async fn build_photo_grid() -> anyhow::Result<ResponsivePhotoGrid<PhotoLayoutDat
 
     let photo_data: Vec<_> = data
         .into_iter()
-        .filter_map(|(key, value)| {
-            let aspect_ratio = value.first()?.aspect_ratio.parse().ok()?;
+        .filter_map(|(_key, value)| {
+            let aspect_ratio = value.first()?.aspect_ratio;
             Some(PhotoLayoutData {
                 aspect_ratio,
                 srcs: value
                     .into_iter()
                     .map(|c| SrcSet {
                         dimensions: Dimension {
-                            width: aspect_ratio.width,
-                            height: aspect_ratio.height,
+                            width: c.aspect_ratio.width,
+                            height: c.aspect_ratio.height,
                         },
                         url: c.url,
                     })

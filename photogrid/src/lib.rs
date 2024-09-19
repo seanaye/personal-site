@@ -122,6 +122,20 @@ impl<T> ResponsivePhotoGrid<T> {
         })
     }
 
+    pub fn contents_at(&self, n: usize) -> impl Iterator<Item = (&T, &GridContent<usize>)> {
+        self.grids.iter().filter_map(move |grid| {
+            grid.grid
+                .get(n)
+                .map(|idx| (self.data.get(*idx.content()).unwrap(), idx))
+        })
+    }
+
+    /// returns the length of the first grid.
+    /// this assumes all inner grids have the same number of items
+    pub fn contents_len(&self) -> usize {
+        self.grids.first().map(|g| g.grid.len()).unwrap_or_default()
+    }
+
     /// on the smallest breakpoint we want to insert an outer container which always occupies the full width
     pub fn grow_to_width(mut self) -> Self {
         self.grids = self

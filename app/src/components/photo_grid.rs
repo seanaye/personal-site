@@ -1,5 +1,6 @@
+use grid::Size;
 use leptos::prelude::*;
-use photogrid::{PhotoLayoutData, ResponsivePhotoGrid};
+use photogrid::{PhotoLayoutData, ResponsivePhotoGrid, SrcSet};
 use std::sync::Arc;
 
 #[component]
@@ -9,10 +10,8 @@ pub fn PhotoGridComponent() -> impl IntoView {
     let data = use_context::<Arc<ResponsivePhotoGrid<PhotoLayoutData>>>();
 
     let Some(g) = data else {
-        dbg!("else");
         return view! {}.into_any();
     };
-    dbg!("render");
 
     let _ = "hidden col-span-1 row-span-1 col-span-2 row-span-2 col-span-3 row-span-3 col-span-4 row-span-4 col-start-1 row-start-1 col-start-2 row-start-2 col-start-3 row-start-3 col-start-4 row-start-4 col-start-5 row-start-5 col-start-6 row-start-6 col-start-7 row-start-7 col-start-8 row-start-8";
 
@@ -36,7 +35,7 @@ pub fn PhotoGridComponent() -> impl IntoView {
                                 >
                                     <img
                                         class="object-contain max-h-full max-w-full"
-                                        src=c.content().srcs[0].url.to_string()
+                                        srcset=srcsets(c.content().srcs.iter())
                                     />
                                 </div>
                             }
@@ -48,4 +47,14 @@ pub fn PhotoGridComponent() -> impl IntoView {
         .collect_view();
 
     view! { <div class="">{inner}</div> }.into_any()
+}
+
+fn srcsets<'a>(s: impl Iterator<Item = &'a SrcSet>) -> String {
+    s.fold(String::new(), |mut acc, cur| {
+        acc.push_str(cur.url.as_str());
+        acc.push(' ');
+        acc.push_str(cur.dimensions.width().to_string().as_str());
+        acc.push_str("w,");
+        acc
+    })
 }
