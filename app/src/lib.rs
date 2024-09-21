@@ -102,7 +102,6 @@ fn HomePage() -> impl IntoView {
                 </div>
             </div>
         </Canvas>
-        <PhotoGridComponent />
     }
 }
 

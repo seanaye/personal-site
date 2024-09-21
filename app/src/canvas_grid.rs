@@ -161,10 +161,6 @@ pub trait CanvasEventManager {
 pub struct CanvasParams<T, S> {
     /// the size of dots to make the grid
     pub size: S,
-    /// the window device pixel ratio
-    pub px_ratio: f64,
-    /// how much scaled up the visible grid should be from the hidden one
-    pub scale_factor: usize,
     /// the node ref of the visible canvas
     pub visible_canvas: NodeRef<Canvas>,
     /// the node ref of the invisible canvas
@@ -181,7 +177,7 @@ impl<T> LiquidGridImageCanvas<T>
 where
     T: Fn() + 'static,
 {
-    fn setup_canvas(ref_node: NodeRef<Canvas>, px_ratio: f64) -> CanvasRenderingContext2d {
+    fn setup_canvas(ref_node: NodeRef<Canvas>) -> CanvasRenderingContext2d {
         let c = ref_node.get_untracked().expect("Canvas not loaded");
         let context = c
             .get_context("2d")
@@ -190,7 +186,6 @@ where
             .dyn_into::<web_sys::CanvasRenderingContext2d>()
             .unwrap();
 
-        context.scale(px_ratio, px_ratio).unwrap();
         context.set_image_smoothing_enabled(false);
 
         context
@@ -202,8 +197,6 @@ where
     {
         let CanvasParams {
             size,
-            px_ratio,
-            scale_factor,
             visible_canvas,
             hidden_canvas,
             events,
@@ -216,9 +209,6 @@ where
         let width = grid.grid().width();
         let height = grid.grid().height();
 
-        let scaled_width = width * scale_factor;
-        let scaled_height = height * scale_factor;
-
         // RGBA for each pixel
         let image_buffer = vec![u8::MAX; width * height * 4];
 
@@ -226,14 +216,14 @@ where
 
         Self {
             poline: PolineManagerImpl::new(hue_offset),
-            hidden_ctx: Self::setup_canvas(hidden_canvas, px_ratio),
+            hidden_ctx: Self::setup_canvas(hidden_canvas),
             grid,
-            ctx: Self::setup_canvas(visible_canvas, px_ratio),
+            ctx: Self::setup_canvas(visible_canvas),
             events,
             clear_events,
             image_buffer,
-            f64_scaled_width: f64::from_usize(scaled_width).unwrap(),
-            f64_scaled_height: f64::from_usize(scaled_height).unwrap(),
+            f64_scaled_width: f64::from_usize(width).unwrap(),
+            f64_scaled_height: f64::from_usize(height).unwrap(),
         }
     }
 
@@ -303,8 +293,8 @@ where
                 &self.hidden_ctx.canvas().ok_or(())?,
                 0.0,
                 0.0,
-                self.f64_scaled_width,
-                self.f64_scaled_height,
+                self.ctx.canvas().unwrap().width() as f64,
+                self.ctx.canvas().unwrap().height() as f64,
             )
             .log_and_consume()?;
         Ok(())

@@ -93,13 +93,6 @@ pub fn Canvas(children: Children) -> impl IntoView {
 
     let UseWindowSizeReturn { width, height } = use_elem_size(outer_size);
 
-    let window = use_window();
-    let px_ratio = window
-        .as_ref()
-        .map(|w| w.device_pixel_ratio())
-        .unwrap_or_default();
-    let px_ratio_usize = usize::from_f64(px_ratio).unwrap_or(1);
-
     let (events, set_events) = signal(EventState::default());
 
     let clear_events = move || set_events.update(|ev| ev.clear_events());
@@ -126,6 +119,17 @@ pub fn Canvas(children: Children) -> impl IntoView {
         true
     });
 
+    let reduce_scale = Signal::derive(move || match width.get() > 1000.0 {
+        true => 2,
+        false => 1,
+    });
+
+    let dots_width_sig =
+        Signal::derive(move || usize::from_f64(width.get()).unwrap() / reduce_scale.get());
+
+    let dots_height_sig =
+        Signal::derive(move || usize::from_f64(height.get()).unwrap() / reduce_scale.get());
+
     let on_cancel = move || {
         log::info!("aborted compute events");
         set_cancel_count.update(|c| {
@@ -142,10 +146,8 @@ pub fn Canvas(children: Children) -> impl IntoView {
 
         set_events.set(EventState::default());
 
-        let dw = width.get_untracked() / px_ratio;
-        let dots_width = usize::from_f64(dw).unwrap();
-        let dh = height.get_untracked() / px_ratio;
-        let dots_height = usize::from_f64(dh).unwrap();
+        let dots_width = dots_width_sig.get_untracked();
+        let dots_height = dots_height_sig.get_untracked();
 
         let handle = set_interval_with_handle(
             move || {
@@ -154,8 +156,9 @@ pub fn Canvas(children: Children) -> impl IntoView {
                 set_events.update(move |c| {
                     c.add_event(Event::AddDrop {
                         coord: Coord {
-                            x: usize::from_f64(f_x * dw).unwrap(),
-                            y: usize::from_f64(f_y * dh).unwrap(),
+                            x: usize::from_f64(f_x * f64::from_usize(dots_width).unwrap()).unwrap(),
+                            y: usize::from_f64(f_y * f64::from_usize(dots_height).unwrap())
+                                .unwrap(),
                         },
                     })
                 });
@@ -187,8 +190,6 @@ pub fn Canvas(children: Children) -> impl IntoView {
                         width: dots_width,
                         height: dots_height,
                     },
-                    px_ratio,
-                    scale_factor: px_ratio_usize,
                     visible_canvas: canvas_ref,
                     hidden_canvas: canvas_ref_hidden,
                     events,
@@ -209,8 +210,8 @@ pub fn Canvas(children: Children) -> impl IntoView {
             on:pointermove=move |ev| {
                 let e = Event::AddDrop {
                     coord: Coord {
-                        x: (ev.page_x() / px_ratio_usize as i32) as usize,
-                        y: (ev.page_y() / px_ratio_usize as i32) as usize,
+                        x: ev.page_x() as usize / reduce_scale.get_untracked(),
+                        y: ev.page_y() as usize / reduce_scale.get_untracked(),
                     },
                 };
                 set_events.update(move |v| v.add_event(e));
@@ -218,8 +219,8 @@ pub fn Canvas(children: Children) -> impl IntoView {
             on:click=move |ev| {
                 let e = Event::AddDrop {
                     coord: Coord {
-                        x: (ev.page_x() / px_ratio_usize as i32) as usize,
-                        y: (ev.page_y() / px_ratio_usize as i32) as usize,
+                        x: ev.page_x() as usize / reduce_scale.get_untracked(),
+                        y: ev.page_y() as usize / reduce_scale.get_untracked(),
                     },
                 };
                 set_events.update(move |v| v.add_event(e));
@@ -234,8 +235,8 @@ pub fn Canvas(children: Children) -> impl IntoView {
             {children()}
             <canvas
                 node_ref=canvas_ref_hidden
-                width=move || width.get()
-                height=move || height.get()
+                width=move || dots_width_sig.get()
+                height=move || dots_height_sig.get()
                 class="hidden"
             />
         </div>

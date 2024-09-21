@@ -107,36 +107,6 @@ impl<T> Size for Grid<T> {
     }
 }
 
-// #[derive(Debug, Clone, Copy)]
-// enum Operation {
-//     Plus,
-//     Minus,
-// }
-// impl Operation {
-//     fn do(self, a: usize, b: usize) -> usize {
-//         match self {
-//             Operation::Plus => a + b,
-//             Operation::Minus => a - b
-
-//         }
-//     }
-// }
-
-// fn neighbours(Coord { x: this_x, y: this_y }: Coord) -> impl Iterator<Coord> {
-//     [
-//         ((1, Operation::Minus), (1, Operation::Minus)),
-//         ((0, Operation::Minus), (1, Operation::Minus)),
-//         ((1, Operation::Plus), (1, Operation::Minus)),
-//         ((1, Operation::Minus), (0, Operation::Minus)),
-//         ((1, Operation::Plus), (0, Operation::Minus)),
-//         ((1, Operation::Minus), (1, Operation::Plus)),
-//         ((0, Operation::Plus), (1, Operation::Plus)),
-//         ((1, Operation::Plus), (1, Operation::Plus)),
-//     ].map(|(x, y)| {
-//             Coord {}
-//         })
-// }
-
 #[derive(Debug, Clone, Copy)]
 enum Op {
     Plus,
@@ -777,28 +747,6 @@ mod tests {
         )
     }
 
-    // #[tokio::test]
-    // async fn grid_width_three() {
-    //     let data = read_layout_data("tests/layout.json").await.unwrap();
-
-    //     let photos = ResponsivePhotoGrid::new(data, [3], |x| {
-    //         RoundedAspectRatio::<2>::from_aspect_ratio(&x.aspect_ratio)
-    //     });
-
-    //     let grid = photos.grids().next().unwrap();
-    //     let first = grid.grid.first().unwrap();
-    //     assert_matches!(
-    //         first,
-    //         GridContent {
-    //             size: Dimension {
-    //                 width: 3,
-    //                 height: 2
-    //             },
-    //             origin: Coord { x: 0, y: 0 },
-    //             ..
-    //         }
-    //     );
-    // }
     #[test]
     fn off_by_1_aspect() {
         let data = RoundedAspectRatio::<2>::from_aspect_ratio(&crate::AspectRatio {
