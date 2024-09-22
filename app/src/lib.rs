@@ -7,9 +7,7 @@ mod canvas_grid;
 mod components;
 mod hooks;
 mod log_js_trait;
-
 use components::*;
-
 pub mod error_template;
 mod style;
 

@@ -45,6 +45,7 @@ async fn build_photo_grid() -> anyhow::Result<ResponsivePhotoGrid<PhotoLayoutDat
 #[tokio::main]
 async fn main() {
     simple_logger::init_with_level(log::Level::Debug).expect("couldn't initialize logging");
+    #[cfg(debug_assertions)]
     dotenv::dotenv().unwrap();
 
     // Setting get_configuration(None) means we'll be using cargo-leptos's env values
@@ -61,7 +62,7 @@ async fn main() {
     let leptos_options = conf.leptos_options;
     let addr = leptos_options.site_addr;
     let routes = generate_route_list(App);
-    let grid = Arc::new(build_photo_grid().await.unwrap());
+    let grid = Arc::new(ResponsivePhotoGrid::default());
 
     // build our application with a route
     let app = Router::new()
