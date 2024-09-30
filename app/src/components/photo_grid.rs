@@ -7,15 +7,14 @@ use std::sync::Arc;
 pub fn PhotoGridComponent() -> impl IntoView {
     use crate::style::*;
 
-    let data = use_context::<Arc<ResponsivePhotoGrid<PhotoLayoutData>>>();
+    let data = use_context::<Arc<ResponsivePhotoGrid<PhotoLayoutData>>>().unwrap();
 
-    let Some(g) = data else {
-        return view! {}.into_any();
-    };
+    let _ = "col-span-1 col-span-2 col-span-3 col-span-4 col-span-5 col-span-6 col-span-7 col-span-8 col-span-9 col-span-10 col-span-11 col-span-12";
+    let _ = "row-span-1 row-span-2 row-span-3 row-span-4 row-span-5 row-span-6 row-span-7 row-span-8 row-span-9 row-span-10 row-span-11 row-span-12";
+    let _ = "col-start-1 col-start-2 col-start-3 col-start-4 col-start-5 col-start-6 col-start-7 col-start-8 col-start-9 col-start-10 col-start-11 col-start-12";
+    let _ = "row-start-1 row-start-2 row-start-3 row-start-4 row-start-5 row-start-6 row-start-7 row-start-8 row-start-9 row-start-10 row-start-11 row-start-12";
 
-    let _ = "hidden col-span-1 row-span-1 col-span-2 row-span-2 col-span-3 row-span-3 col-span-4 row-span-4 col-start-1 row-start-1 col-start-2 row-start-2 col-start-3 row-start-3 col-start-4 row-start-4 col-start-5 row-start-5 col-start-6 row-start-6 col-start-7 row-start-7 col-start-8 row-start-8";
-
-    let inner = g
+    let inner = data
         .grids()
         .map(|grid| {
             let class = grid.style(GridOuterClass);
@@ -34,7 +33,7 @@ pub fn PhotoGridComponent() -> impl IntoView {
                                     style=c.style(GridElemStyle)
                                 >
                                     <img
-                                        class="object-contain max-h-full max-w-full"
+                                        class="object-contain max-h-full max-w-full w-full"
                                         srcset=srcsets(c.content().srcs.iter())
                                     />
                                 </div>

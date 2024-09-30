@@ -1,6 +1,5 @@
 use grid::{Coord, Dimension};
 use leptos::{html, prelude::*};
-use leptos_use::{use_element_size, use_window, UseElementSizeReturn};
 use num_traits::FromPrimitive;
 use std::time::Duration;
 use wasm_bindgen::prelude::*;
@@ -15,7 +14,7 @@ use crate::{
 
 #[island]
 pub fn Slider() -> impl IntoView {
-    let slider_update: SliderUpdate = expect_context();
+    let slider_update: SliderHue = expect_context();
 
     view! {
         <input
@@ -26,27 +25,9 @@ pub fn Slider() -> impl IntoView {
             value=move || slider_update.hue_value.get()
             on:input=move |ev| {
                 let v: f64 = event_target_value(&ev).parse().unwrap();
-                slider_update.on_update(v)
+                slider_update.set_hue_value.set(v)
             }
         />
-    }
-}
-
-#[derive(Clone, Copy)]
-struct SliderUpdate {
-    pub hue_value: ReadSignal<f64>,
-    set_hue_value: WriteSignal<f64>,
-    set_events: WriteSignal<EventState>,
-}
-
-impl SliderUpdate {
-    fn on_update(&self, this: f64) {
-        self.set_hue_value.update(move |last| {
-            let diff = this - *last;
-            self.set_events
-                .update(move |canvas| canvas.add_event(Event::OffsetHue { hue: diff }));
-            *last = this
-        });
     }
 }
 
@@ -54,14 +35,28 @@ impl SliderUpdate {
 pub struct SliderHue {
     pub hue_value: ReadSignal<f64>,
     pub set_hue_value: WriteSignal<f64>,
+    pub poline: Memo<PolineManagerImpl>,
 }
 
 pub fn use_provide_slider_hue() -> SliderHue {
     let (hue_value, set_hue_value) = signal(0.0);
 
+    let colours = Memo::new_owning(move |last| {
+        let value = hue_value.get();
+        let Some(mut last) = last else {
+            return (PolineManagerImpl::default(), true);
+        };
+
+        let prev = *last.abs_hue();
+        last.set_hue(value);
+        let neq = &prev != last.abs_hue();
+        (last, neq)
+    });
+
     let slider_hue = SliderHue {
         hue_value,
         set_hue_value,
+        poline: colours,
     };
     provide_context(slider_hue);
 
@@ -72,18 +67,11 @@ pub fn expect_slider_hue() -> SliderHue {
     expect_context()
 }
 
-// fn use_max(input: ReadSignal<f64>) -> Signal<f64> {
-//     let prev_max = input.get_untracked();
-//     let (prev_max, set_prev_max) = signal(prev_max);
-//     Effect::new(move || {
-//         let cur = input.get();
-//         if cur > *prev_max.read_untracked() {
-//             set_prev_max.set(cur);
-//         }
-//     });
-
-//     Signal::derive(move || input.get().max(prev_max.get()))
-// }
+#[island]
+pub fn SliderProvider(children: Children) -> impl IntoView {
+    use_provide_slider_hue();
+    children()
+}
 
 #[island]
 pub fn Canvas(children: Children) -> impl IntoView {
@@ -99,16 +87,7 @@ pub fn Canvas(children: Children) -> impl IntoView {
 
     let (cancel_count, set_cancel_count) = signal(0);
 
-    let SliderHue {
-        hue_value,
-        set_hue_value,
-    } = use_provide_slider_hue();
-
-    provide_context(SliderUpdate {
-        hue_value,
-        set_hue_value,
-        set_events,
-    });
+    let SliderHue { poline, .. } = expect_slider_hue();
 
     Effect::new(move |val: Option<bool>| {
         width.with(|_| {});
@@ -165,7 +144,6 @@ pub fn Canvas(children: Children) -> impl IntoView {
             },
             Duration::from_millis(2000),
         );
-        let hue_offset = hue_value.get_untracked();
 
         request_animation_frame(move || {
             fn helper<T, U>(mut g: T, on_cancel: U)
@@ -181,7 +159,8 @@ pub fn Canvas(children: Children) -> impl IntoView {
                     log::info!("failed to draw");
                     return;
                 };
-                request_animation_frame(move || helper(g, on_cancel));
+                // TODO uncomment this line
+                // request_animation_frame(move || helper(g, on_cancel));
             }
 
             helper(
@@ -194,7 +173,7 @@ pub fn Canvas(children: Children) -> impl IntoView {
                     hidden_canvas: canvas_ref_hidden,
                     events,
                     clear_events,
-                    hue_offset,
+                    poline,
                 }),
                 on_cancel,
             )
@@ -245,11 +224,7 @@ pub fn Canvas(children: Children) -> impl IntoView {
 
 #[island]
 pub fn DebugPoline() -> impl IntoView {
-    let SliderHue { hue_value, .. } = expect_slider_hue();
-    let poline = Signal::derive(move || {
-        let hue = hue_value.get();
-        PolineManagerImpl::new(hue)
-    });
+    let SliderHue { poline, .. } = expect_slider_hue();
 
     view! {
         <div class="pointer-events-none absolute left-0 top-0 h-dvh flex flex-wrap flex-col">

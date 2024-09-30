@@ -4,10 +4,13 @@ pub trait LogJsError<T, U> {
     fn log_and_consume(self) -> Result<T, ()>;
 }
 
-impl<T> LogJsError<T, JsValue> for Result<T, JsValue> {
+impl<T, U> LogJsError<T, U> for Result<T, U>
+where
+    U: std::fmt::Debug,
+{
     fn log_and_consume(self) -> Result<T, ()> {
         self.map_err(|e| {
-            gloo::console::log!(e);
+            leptos::logging::log!("{e:?}");
         })
     }
 }

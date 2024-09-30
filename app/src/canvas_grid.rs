@@ -11,12 +11,24 @@ use crate::log_js_trait::LogJsError;
 
 pub trait PolineManager {
     fn colors(&self) -> &[[u8; 3]];
+    /// shift the current hue by set degrees
     fn shift_hue(&mut self, hue: f64);
+    /// set the aboslute hue shift in terms of offset
+    /// from 0 degrees
+    fn set_hue(&mut self, hue: f64);
 }
 
 pub struct PolineManagerImpl {
     poline: Poline,
     colors: Vec<[u8; 3]>,
+    /// the absolute value of the hue shift
+    abs_hue: f64,
+}
+
+impl PartialEq for PolineManagerImpl {
+    fn eq(&self, other: &Self) -> bool {
+        self.abs_hue == other.abs_hue
+    }
 }
 
 impl PolineManagerImpl {
@@ -30,6 +42,11 @@ impl PolineManagerImpl {
             })
             .collect()
     }
+
+    /// get the absolute value of the hue shift
+    pub fn abs_hue(&self) -> &f64 {
+        &self.abs_hue
+    }
 }
 
 impl PolineManager for PolineManagerImpl {
@@ -39,7 +56,13 @@ impl PolineManager for PolineManagerImpl {
 
     fn shift_hue(&mut self, hue: f64) {
         self.poline.shift_hue(Some(hue));
+        self.abs_hue += hue;
         self.colors = Self::regen_colors(&self.poline);
+    }
+
+    fn set_hue(&mut self, hue: f64) {
+        let diff = hue - self.abs_hue;
+        self.shift_hue(diff);
     }
 }
 
@@ -51,6 +74,7 @@ impl Default for PolineManagerImpl {
 
 impl PolineManagerImpl {
     pub fn new(hue_offset: f64) -> Self {
+        leptos::logging::log!("new poline manager impl");
         let poline = Poline::builder()
             .num_points(256)
             .anchor_points(vec![
@@ -73,7 +97,11 @@ impl PolineManagerImpl {
             .unwrap();
 
         let colors = Self::regen_colors(&poline);
-        let mut out = Self { poline, colors };
+        let mut out = Self {
+            poline,
+            colors,
+            abs_hue: hue_offset,
+        };
         if hue_offset != 0.0 {
             out.shift_hue(hue_offset);
         }
@@ -82,7 +110,7 @@ impl PolineManagerImpl {
 }
 
 pub struct LiquidGridImageCanvas<T> {
-    poline: PolineManagerImpl,
+    poline: Memo<PolineManagerImpl>,
     grid: LiquidGrid,
     ctx: CanvasRenderingContext2d,
     hidden_ctx: CanvasRenderingContext2d,
@@ -96,7 +124,6 @@ pub struct LiquidGridImageCanvas<T> {
 #[derive(Debug, Clone, Copy)]
 pub enum Event {
     AddDrop { coord: Coord<usize> },
-    OffsetHue { hue: f64 },
 }
 
 /// events to be sent to the liquid grid canvas
@@ -129,18 +156,12 @@ impl EventState {
 }
 
 pub trait CanvasEventManager {
-    fn grid_events(
-        &mut self,
-    ) -> (
-        &ReadSignal<EventState>,
-        &mut LiquidGrid,
-        &mut impl PolineManager,
-    );
+    fn grid_events(&mut self) -> (&ReadSignal<EventState>, &mut LiquidGrid);
     fn clear_events(&mut self);
 
     /// calculate the events
     fn compute_events(&mut self) -> Result<(), ()> {
-        let (events, grid, poline) = self.grid_events();
+        let (events, grid) = self.grid_events();
         let res = events.with_untracked(|val| {
             if val.cancel {
                 return Err(());
@@ -148,7 +169,6 @@ pub trait CanvasEventManager {
             for ev in &val.events {
                 match ev {
                     Event::AddDrop { coord } => grid.add_drop(*coord),
-                    Event::OffsetHue { hue } => poline.shift_hue(*hue),
                 }
             }
             Ok(())
@@ -169,8 +189,7 @@ pub struct CanvasParams<T, S> {
     pub events: ReadSignal<EventState>,
     /// callback to clear the events
     pub clear_events: T,
-    /// the current hue_offset value
-    pub hue_offset: f64,
+    pub poline: Memo<PolineManagerImpl>,
 }
 
 impl<T> LiquidGridImageCanvas<T>
@@ -201,7 +220,7 @@ where
             hidden_canvas,
             events,
             clear_events,
-            hue_offset,
+            poline,
         } = params;
 
         let grid = LiquidGridBuilder::new(size.width(), size.height()).build();
@@ -215,7 +234,7 @@ where
         (clear_events)();
 
         Self {
-            poline: PolineManagerImpl::new(hue_offset),
+            poline,
             hidden_ctx: Self::setup_canvas(hidden_canvas),
             grid,
             ctx: Self::setup_canvas(visible_canvas),
@@ -230,8 +249,9 @@ where
     pub fn fill_buffer(&mut self) {
         for (idx, value) in self.grid.grid().as_slice().iter().enumerate() {
             let color_idx = value + 128.0;
+            let read_guard = self.poline.read_untracked();
             let color = unsafe {
-                self.poline
+                read_guard
                     .colors()
                     .get_unchecked(usize::from_f64(color_idx.clamp(0.0, 256.0)).unwrap())
             };
@@ -252,14 +272,8 @@ impl<T> CanvasEventManager for LiquidGridImageCanvas<T>
 where
     T: Fn() + 'static,
 {
-    fn grid_events(
-        &mut self,
-    ) -> (
-        &ReadSignal<EventState>,
-        &mut LiquidGrid,
-        &mut impl PolineManager,
-    ) {
-        (&self.events, &mut self.grid, &mut self.poline)
+    fn grid_events(&mut self) -> (&ReadSignal<EventState>, &mut LiquidGrid) {
+        (&self.events, &mut self.grid)
     }
 
     fn clear_events(&mut self) {

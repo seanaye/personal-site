@@ -3,10 +3,10 @@ use std::{
     cmp::Ordering,
     collections::HashSet,
     fmt::Display,
-    num::ParseIntError,
     ops::{Add, Range, RangeInclusive},
-    str::FromStr,
 };
+#[cfg(feature = "parse")]
+pub mod parse;
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct Dimension {
@@ -24,19 +24,8 @@ impl Size for Dimension {
     }
 }
 
-impl Dimension {
-    fn aspect_ratio(&self) -> AspectRatio {
-        let gcd = num::integer::gcd(self.width, self.height);
-        let a = self.width / gcd;
-        let b = self.height / gcd;
-        AspectRatio {
-            width: a,
-            height: b,
-        }
-    }
-}
-
 #[derive(Debug, Serialize, Deserialize, Clone, Copy)]
+#[non_exhaustive]
 pub struct AspectRatio {
     pub width: usize,
     pub height: usize,
@@ -45,30 +34,6 @@ pub struct AspectRatio {
 impl Display for AspectRatio {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}:{}", self.width, self.height)
-    }
-}
-
-pub enum ParseAspectRatioError {
-    ParseInt(ParseIntError),
-    Separator,
-}
-impl FromStr for AspectRatio {
-    type Err = ParseAspectRatioError;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let mut split = s.split(':');
-        let first = split.next().ok_or(ParseAspectRatioError::Separator)?;
-        let second = split.next().ok_or(ParseAspectRatioError::Separator)?;
-        if split.next().is_some() {
-            return Err(ParseAspectRatioError::Separator);
-        }
-
-        let a: usize = first.parse().map_err(ParseAspectRatioError::ParseInt)?;
-        let b: usize = second.parse().map_err(ParseAspectRatioError::ParseInt)?;
-        Ok(Self {
-            width: a,
-            height: b,
-        })
     }
 }
 
@@ -542,6 +507,18 @@ pub trait Size {
         let height = self.height();
         let width = self.width();
         (0..height).flat_map(move |y| (0..width).map(move |x| Coord { x, y }))
+    }
+
+    fn aspect_ratio(&self) -> AspectRatio {
+        let width = self.width();
+        let height = self.height();
+        let gcd = num::integer::gcd(width, height);
+        let a = width / gcd;
+        let b = height / gcd;
+        AspectRatio {
+            width: a,
+            height: b,
+        }
     }
 }
 

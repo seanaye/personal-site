@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use futures::{stream, StreamExt};
-use grid::AspectRatio;
+use grid::{AspectRatio, Dimension};
 use itertools::Itertools;
 use s3::{
     bucket::Bucket, creds::Credentials, error::S3Error, serde_types::ListBucketResult, Region,
@@ -39,7 +39,7 @@ pub struct BucketAccess<'a> {
 #[derive(Debug)]
 pub struct ResizedImage {
     pub url: Url,
-    pub aspect_ratio: AspectRatio,
+    pub dimension: Dimension,
 }
 
 impl<'a> BucketAccess<'a> {
@@ -91,10 +91,10 @@ impl<'a> BucketAccess<'a> {
                     url.set_host(Some(self.host)).ok()?;
                     let (head, _status) = self.bucket.head_object(c.key).await.ok()?;
                     let metadata = &mut head.metadata?;
-                    let aspect_ratio: AspectRatio = metadata.get_mut("aspect-ratio")?.parse().ok()?;
+                    let dimension: Dimension = metadata.get_mut("dimensions")?.parse().ok()?;
                     Some(ResizedImage {
                         url,
-                        aspect_ratio,
+                        dimension,
                     })
                 })
                 .collect()

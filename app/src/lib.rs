@@ -1,4 +1,5 @@
 use crate::error_template::{AppError, ErrorTemplate};
+use canvas_grid::PolineManager;
 use leptos::prelude::*;
 use leptos_meta::*;
 use leptos_router::components::{Route, Router, Routes};
@@ -56,51 +57,149 @@ pub fn App() -> impl IntoView {
 }
 
 #[component]
-fn HomePage() -> impl IntoView {
+fn Bio() -> impl IntoView {
     let description = "code|photography|music";
     let description_2 = "Senior Rust Developer at 1Password";
     let shadow = "box-shadow: rgba(68, 64, 60, 0.8) 2rem 2rem;";
 
     view! {
-        <Canvas>
-            <DebugPoline />
-            <div class="flex justify-center items-center absolute inset-0">
-                <div class="max-w-3xl mx-auto p-4 mx-6 bg-white" style=shadow>
-                    <div class="sm:flex">
-                        <div class="flex-shrink-0 flex items-center px-4">
-                            <img
-                                class="h-32 w-32 border border-gray-300 text-gray-300 object-contain rounded-full mx-auto"
-                                src="/avatar.jpg"
-                                alt="Headshot of Sean Aye"
-                            />
-                        </div>
-                        <div class="font-mono prose px-4">
-                            <h1 class="text-xl font-bold text-center sm:text-left">sean aye</h1>
-                            <p class="my-4">{description}</p>
-                            <p class="my-4">{description_2}</p>
-                            <div class="flex flex-row justify-between items-center">
-                                <Slider />
-                                <div class="flex gap-2">
-                                    <a
-                                        href="https://github.com/seanaye"
-                                        class="text-stone-700 hover:text-stone-900"
-                                    >
-                                        <GithubIcon />
-                                    </a>
-                                    <a
-                                        href="mailto:hello@seanaye.ca"
-                                        class="text-stone-700 hover:text-stone-900"
-                                    >
-                                        <MailIcon />
-                                    </a>
-                                </div>
+        <div class="flex justify-center items-center absolute inset-0">
+            <div class="max-w-3xl mx-auto p-4 mx-6 bg-white" style=shadow>
+                <div class="sm:flex">
+                    <div class="flex-shrink-0 flex items-center px-4">
+                        <img
+                            class="h-32 w-32 border border-gray-300 text-gray-300 object-contain rounded-full mx-auto"
+                            src="/avatar.jpg"
+                            alt="Headshot of Sean Aye"
+                        />
+                    </div>
+                    <div class="font-mono px-4">
+                        <h1 class="text-2xl text-center sm:text-left squiggly">sean aye</h1>
+                        <p class="my-4">{description}</p>
+                        <p class="my-4">{description_2}</p>
+                        <div class="flex flex-row justify-between items-center">
+                            <Slider />
+                            <div class="flex gap-2">
+                                <a
+                                    href="https://github.com/seanaye"
+                                    class="text-stone-700 hover:text-stone-900"
+                                >
+                                    <GithubIcon />
+                                </a>
+                                <a
+                                    href="mailto:hello@seanaye.ca"
+                                    class="text-stone-700 hover:text-stone-900"
+                                >
+                                    <MailIcon />
+                                </a>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
-        </Canvas>
+            <div class="hidden">
+                <svg xmlns="http://www.w3.org/2000/svg" version="1.1">
+                    <defs>
+                        <filter id="squiggly-0">
+                            <feTurbulence
+                                id="turbulence"
+                                baseFrequency="0.02"
+                                numOctaves="3"
+                                result="noise"
+                                seed="0"
+                            />
+                            <feDisplacementMap
+                                id="displacement"
+                                in="SourceGraphic"
+                                in2="noise"
+                                scale="6"
+                            />
+                        </filter>
+                        <filter id="squiggly-1">
+                            <feTurbulence
+                                id="turbulence"
+                                baseFrequency="0.02"
+                                numOctaves="3"
+                                result="noise"
+                                seed="1"
+                            />
+                            <feDisplacementMap in="SourceGraphic" in2="noise" scale="8" />
+                        </filter>
+
+                        <filter id="squiggly-2">
+                            <feTurbulence
+                                id="turbulence"
+                                baseFrequency="0.02"
+                                numOctaves="3"
+                                result="noise"
+                                seed="2"
+                            />
+                            <feDisplacementMap in="SourceGraphic" in2="noise" scale="6" />
+                        </filter>
+                        <filter id="squiggly-3">
+                            <feTurbulence
+                                id="turbulence"
+                                baseFrequency="0.02"
+                                numOctaves="3"
+                                result="noise"
+                                seed="3"
+                            />
+                            <feDisplacementMap in="SourceGraphic" in2="noise" scale="8" />
+                        </filter>
+
+                        <filter id="squiggly-4">
+                            <feTurbulence
+                                id="turbulence"
+                                baseFrequency="0.02"
+                                numOctaves="3"
+                                result="noise"
+                                seed="4"
+                            />
+                            <feDisplacementMap in="SourceGraphic" in2="noise" scale="6" />
+                        </filter>
+                    </defs>
+                </svg>
+            </div>
+        </div>
     }
+}
+
+#[component]
+fn HomePage() -> impl IntoView {
+    view! {
+        <SliderProvider>
+            <Canvas>
+                <DebugPoline />
+                <Bio />
+            </Canvas>
+            <Gradient />
+        </SliderProvider>
+        <PhotoGridComponent />
+    }
+}
+
+#[island]
+fn Gradient() -> impl IntoView {
+    let SliderHue { poline, .. } = expect_slider_hue();
+
+    let style = Signal::derive(move || {
+        leptos::logging::log!("re run signal");
+        let p = poline.read();
+        let colors = p.colors();
+        let len = colors.len();
+        if len == 0 {
+            return String::default();
+        }
+
+        let [r, g, b] = unsafe { colors.get_unchecked(len / 2) };
+
+        format!(
+            "background: rgb(255,255,255);
+background: linear-gradient(0deg, rgba(255,255,255,1) 0%, rgba({r},{g},{b},1) 100%);"
+        )
+    });
+
+    view! { <div class="w-full h-32" style=style /> }
 }
 
 #[component]
