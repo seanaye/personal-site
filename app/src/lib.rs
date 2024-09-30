@@ -182,24 +182,39 @@ fn HomePage() -> impl IntoView {
 fn Gradient() -> impl IntoView {
     let SliderHue { poline, .. } = expect_slider_hue();
 
-    let style = Signal::derive(move || {
+    let color = Signal::derive(move || {
         leptos::logging::log!("re run signal");
         let p = poline.read();
         let colors = p.colors();
         let len = colors.len();
         if len == 0 {
-            return String::default();
+            return "rgba(0,0,0,1)".to_string();
         }
 
         let [r, g, b] = unsafe { colors.get_unchecked(len / 2) };
 
-        format!(
-            "background: rgb(255,255,255);
-background: linear-gradient(0deg, rgba(255,255,255,1) 0%, rgba({r},{g},{b},1) 100%);"
-        )
+        format!("rgba({r},{g},{b},1)")
     });
 
-    view! { <div class="w-full h-32" style=style /> }
+    view! {
+        <div class="w-full h-64 isolate relative">
+            <div
+                class="mix-blend-multiply top-0 w-full h-full absolute"
+                style=move || {
+                    let c = color.get();
+                    format!("background: {};", c)
+                }
+            />
+            <div
+                style="
+                background: linear-gradient(to top, white, transparent),
+                url(/noise.svg);
+                filter: contrast(290%) brightness(1000%);
+                "
+                class="w-full h-full noise"
+            />
+        </div>
+    }
 }
 
 #[component]
