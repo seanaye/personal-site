@@ -11,6 +11,8 @@ leptos = { workspace = true, features = ["ssr"] }
 leptos_axum.workspace = true
 grid = { path = "../grid", features = ["parse"] }
 photogrid = { path = "../photogrid" }
+serde = { version = "1" }
+serde_json = { version = "1" }
 
 axum.workspace = true
 simple_logger.workspace = true

@@ -2753,6 +2753,8 @@ dependencies = [
  "log",
  "photogrid",
  "rust-s3",
+ "serde",
+ "serde_json",
  "simple_logger",
  "tokio",
  "tower",

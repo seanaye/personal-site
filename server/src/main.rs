@@ -5,7 +5,8 @@ use grid::{FromAspectRatio, RoundedAspectRatio, Size};
 use leptos::prelude::*;
 use leptos_axum::{generate_route_list, LeptosRoutes};
 use photogrid::{PhotoLayoutData, ResponsivePhotoGrid, SrcSet};
-use std::{collections::HashMap, sync::Arc};
+use serde::{Deserialize, Serialize};
+use std::{collections::HashMap, fs::File, io::Write, sync::Arc};
 
 mod bucket;
 
@@ -40,6 +41,12 @@ async fn build_photo_grid() -> anyhow::Result<ResponsivePhotoGrid<PhotoLayoutDat
     ))
 }
 
+fn write_to_file<T>(data: &T) where T: Serialize {
+    let mut f = File::create_new("data.json").unwrap();
+    let s = serde_json::to_string(data).unwrap();
+    f.write_all(s.as_bytes()).unwrap();
+}
+
 #[tokio::main]
 async fn main() {
     simple_logger::init_with_level(log::Level::Debug).expect("couldn't initialize logging");
@@ -60,7 +67,9 @@ async fn main() {
     let leptos_options = conf.leptos_options;
     let addr = leptos_options.site_addr;
     let routes = generate_route_list(App);
-    let grid = Arc::new(ResponsivePhotoGrid::testing());
+    let g = ResponsivePhotoGrid::cached();
+    leptos::logging::log!("Built photo grid with {} items", g.contents_len());
+    let grid = Arc::new(g);
 
     // build our application with a route
     let app = Router::new()

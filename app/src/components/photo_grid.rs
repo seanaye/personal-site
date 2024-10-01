@@ -27,7 +27,7 @@ pub fn PhotoGridComponent() -> impl IntoView {
                             view! {
                                 <div
                                     class=format!(
-                                        "p-4 flex items-center justify-center {}",
+                                        "p-1 flex items-center justify-center {}",
                                         c.style(GridElemClass),
                                     )
                                     style=c.style(GridElemStyle)

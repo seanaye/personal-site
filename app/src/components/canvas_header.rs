@@ -159,8 +159,7 @@ pub fn Canvas(children: Children) -> impl IntoView {
                     log::info!("failed to draw");
                     return;
                 };
-                // TODO uncomment this line
-                // request_animation_frame(move || helper(g, on_cancel));
+                request_animation_frame(move || helper(g, on_cancel));
             }
 
             helper(

@@ -33,8 +33,8 @@ impl<T> CssStyle<GridOuterClass> for PhotoGrid<T> {
         let width = self.width;
 
         let display = match width {
-            12 => "hidden xl:grid grid-cols-12",
-            8 => "hidden lg:max-xl:grid grid-cols-8",
+            12 => "hidden 2xl:grid grid-cols-12",
+            8 => "hidden lg:max-2xl:grid grid-cols-8",
             5 => "hidden md:max-lg:grid grid-cols-5",
             4 => "hidden sm:max-md:grid grid-cols-4",
             3 => "grid sm:hidden grid-cols-3",

@@ -58,7 +58,7 @@ pub fn App() -> impl IntoView {
 
 #[component]
 fn Bio() -> impl IntoView {
-    let description = "code|photography|music";
+    let description = "code | photography | music";
     let description_2 = "Senior Rust Developer at 1Password";
     let shadow = "box-shadow: rgba(68, 64, 60, 0.8) 2rem 2rem;";
 
@@ -123,7 +123,7 @@ fn Bio() -> impl IntoView {
                                 result="noise"
                                 seed="1"
                             />
-                            <feDisplacementMap in="SourceGraphic" in2="noise" scale="8" />
+                            <feDisplacementMap in="SourceGraphic" in2="noise" scale="5" />
                         </filter>
 
                         <filter id="squiggly-2">
@@ -144,7 +144,7 @@ fn Bio() -> impl IntoView {
                                 result="noise"
                                 seed="3"
                             />
-                            <feDisplacementMap in="SourceGraphic" in2="noise" scale="8" />
+                            <feDisplacementMap in="SourceGraphic" in2="noise" scale="5" />
                         </filter>
 
                         <filter id="squiggly-4">
@@ -172,14 +172,16 @@ fn HomePage() -> impl IntoView {
                 <DebugPoline />
                 <Bio />
             </Canvas>
-            <Gradient />
+            <Gradient>
+                <div />
+            </Gradient>
         </SliderProvider>
         <PhotoGridComponent />
     }
 }
 
 #[island]
-fn Gradient() -> impl IntoView {
+fn Gradient(children: Children) -> impl IntoView {
     let SliderHue { poline, .. } = expect_slider_hue();
 
     let color = Signal::derive(move || {
@@ -197,7 +199,7 @@ fn Gradient() -> impl IntoView {
     });
 
     view! {
-        <div class="w-full h-64 isolate relative">
+        <div class="w-full h-32 isolate relative">
             <div
                 class="mix-blend-multiply top-0 w-full h-full absolute"
                 style=move || {
@@ -213,6 +215,7 @@ fn Gradient() -> impl IntoView {
                 "
                 class="w-full h-full noise"
             />
+            {children()}
         </div>
     }
 }

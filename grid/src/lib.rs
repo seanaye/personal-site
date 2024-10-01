@@ -37,7 +37,7 @@ impl Display for AspectRatio {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Coord<T> {
     pub x: T,
     pub y: T,
@@ -368,7 +368,7 @@ impl Grid<Option<usize>> {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct GridContent<T> {
     data: T,
     pub size: Dimension,
@@ -602,7 +602,7 @@ impl<const SIZE: usize> FromAspectRatio for RoundedAspectRatio<SIZE> {
         let divisor = min / SIZE;
 
         let mut long_edge = max / divisor;
-        if max % divisor > 0 {
+        if max % divisor > divisor / 2 {
             long_edge += 1;
         }
 
@@ -618,6 +618,16 @@ mod tests {
     use super::*;
     use cool_asserts::assert_matches;
     use std::ops::Not;
+
+    #[test]
+    fn it_should_return_3_to_2_for_z6_dimensions() {
+        let a = RoundedAspectRatio::<2>::from_aspect_ratio(&crate::AspectRatio {
+            width: 6048,
+            height: 4024,
+        });
+        assert_eq!(a.width(), 3);
+        assert_eq!(a.height(), 2);
+    }
 
     #[test]
     fn it_should_round_aspect() {

@@ -35,5 +35,5 @@ leptos-children {
 }
 
 .squiggly {
-  animation: 0.5s linear 0.5s infinite alternate squiggly-anim;
+  animation: 0.5s linear infinite alternate squiggly-anim;
 }
