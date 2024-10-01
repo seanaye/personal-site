@@ -50,7 +50,7 @@ fn write_to_file<T>(data: &T) where T: Serialize {
 #[tokio::main]
 async fn main() {
     simple_logger::init_with_level(log::Level::Debug).expect("couldn't initialize logging");
-    // #[cfg(debug_assertions)]
+    #[cfg(debug_assertions)]
     dotenv::dotenv().unwrap();
 
     // Setting get_configuration(None) means we'll be using cargo-leptos's env values
