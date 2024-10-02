@@ -613,6 +613,31 @@ impl<const SIZE: usize> FromAspectRatio for RoundedAspectRatio<SIZE> {
     }
 }
 
+impl<const SIZE: usize> RoundedAspectRatio<SIZE> {
+    pub fn clamp_width_to(self, max_width: usize) -> Dimension {
+        let height = self.height();
+        let width = self.width();
+        if width <= max_width {
+            // we do dont need to do anything, return
+            return Dimension {
+                width: self.width(),
+                height,
+            };
+        }
+
+        let shrink_factor = max_width as f64 / width as f64;
+        let shrunk_height = height as f64 * shrink_factor;
+        let mut new_height = shrunk_height as usize;
+        if new_height < 1 {
+            new_height = 1;
+        }
+        Dimension {
+            width: max_width,
+            height: new_height,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

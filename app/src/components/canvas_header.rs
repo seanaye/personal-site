@@ -159,6 +159,7 @@ pub fn Canvas(children: Children) -> impl IntoView {
                     log::info!("failed to draw");
                     return;
                 };
+                #[cfg(not(debug_assertions))]
                 request_animation_frame(move || helper(g, on_cancel));
             }
 
@@ -184,7 +185,7 @@ pub fn Canvas(children: Children) -> impl IntoView {
     view! {
         <div
             node_ref=outer_size
-            class="relative h-dvh w-dvw"
+            class="relative h-svh w-svw"
             on:pointermove=move |ev| {
                 let e = Event::AddDrop {
                     coord: Coord {
@@ -226,7 +227,7 @@ pub fn DebugPoline() -> impl IntoView {
     let SliderHue { poline, .. } = expect_slider_hue();
 
     view! {
-        <div class="pointer-events-none absolute left-0 top-0 h-dvh flex flex-wrap flex-col">
+        <div class="pointer-events-none absolute left-0 top-0 h-svh flex flex-wrap flex-col">
             {move || {
                 poline
                     .with(|p| {

@@ -5,7 +5,7 @@ use grid::{FromAspectRatio, RoundedAspectRatio, Size};
 use leptos::prelude::*;
 use leptos_axum::{generate_route_list, LeptosRoutes};
 use photogrid::{PhotoLayoutData, ResponsivePhotoGrid, SrcSet};
-use serde::{Deserialize, Serialize};
+use serde::{Serialize};
 use std::{collections::HashMap, fs::File, io::Write, sync::Arc};
 
 mod bucket;
@@ -37,8 +37,16 @@ async fn build_photo_grid() -> anyhow::Result<ResponsivePhotoGrid<PhotoLayoutDat
     Ok(ResponsivePhotoGrid::new(
         photo_data,
         [3, 4, 5, 8, 12],
-        |x| RoundedAspectRatio::<2>::from_aspect_ratio(&x.aspect_ratio),
-    ))
+        |x, size| {
+            
+            let out = RoundedAspectRatio::<2>::from_aspect_ratio(&x.aspect_ratio).clamp_width_to(size);
+            if x.srcs[0].url.as_str().contains("5018") {
+                dbg!(&x, &out);
+                
+            }
+            out
+            },
+    ).grow_to_width())
 }
 
 fn write_to_file<T>(data: &T) where T: Serialize {
@@ -67,6 +75,9 @@ async fn main() {
     let leptos_options = conf.leptos_options;
     let addr = leptos_options.site_addr;
     let routes = generate_route_list(App);
+
+    // let g = build_photo_grid().await.unwrap();
+    // write_to_file(&g);
     let g = ResponsivePhotoGrid::cached();
     leptos::logging::log!("Built photo grid with {} items", g.contents_len());
     let grid = Arc::new(g);
