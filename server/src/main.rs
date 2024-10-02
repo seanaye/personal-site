@@ -46,7 +46,7 @@ async fn build_photo_grid() -> anyhow::Result<ResponsivePhotoGrid<PhotoLayoutDat
             }
             out
             },
-    ).grow_to_width())
+    ))
 }
 
 fn write_to_file<T>(data: &T) where T: Serialize {
