@@ -185,7 +185,7 @@ pub fn Canvas(children: Children) -> impl IntoView {
     view! {
         <div
             node_ref=outer_size
-            class="relative h-svh w-svw"
+            class="relative h-lvh w-lvw"
             on:pointermove=move |ev| {
                 let e = Event::AddDrop {
                     coord: Coord {
@@ -227,7 +227,7 @@ pub fn DebugPoline() -> impl IntoView {
     let SliderHue { poline, .. } = expect_slider_hue();
 
     view! {
-        <div class="pointer-events-none absolute left-0 top-0 h-svh flex flex-wrap flex-col">
+        <div class="pointer-events-none absolute left-0 top-0 h-lvh flex flex-wrap flex-col">
             {move || {
                 poline
                     .with(|p| {
