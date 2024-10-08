@@ -1,8 +1,11 @@
+use std::sync::Arc;
+
 use crate::error_template::{AppError, ErrorTemplate};
 use canvas_grid::PolineManager;
 use leptos::prelude::*;
 use leptos_meta::*;
 use leptos_router::components::{Route, Router, Routes};
+use leptos_router::hooks::{use_params, use_query};
 use leptos_router::*;
 mod canvas_grid;
 mod components;
@@ -10,6 +13,9 @@ mod hooks;
 mod log_js_trait;
 use components::*;
 pub mod error_template;
+use leptos_router::params::Params;
+use photo_search::SearchFilter;
+use photogrid::{PhotoGrid, PhotoLayoutData};
 mod style;
 
 pub fn shell(options: LeptosOptions) -> impl IntoView {
@@ -50,6 +56,7 @@ pub fn App() -> impl IntoView {
                     view! { <ErrorTemplate outside_errors /> }.into_view()
                 }>
                     <Route path=StaticSegment("") view=HomePage />
+                    <Route path=StaticSegment("/search") view=SearchPage />
                 </Routes>
             </main>
         </Router>
@@ -166,6 +173,7 @@ fn Bio() -> impl IntoView {
 
 #[component]
 fn HomePage() -> impl IntoView {
+    let data = use_context::<Arc<[PhotoLayoutData]>>().unwrap();
     view! {
         <SliderProvider>
             <Canvas>
@@ -176,8 +184,45 @@ fn HomePage() -> impl IntoView {
                 <div />
             </Gradient>
         </SliderProvider>
-        <PhotoGridComponent />
+        <PhotoGridComponent data=data />
     }
+}
+
+#[derive(Debug, PartialEq, Clone)]
+struct SearchParams(SearchFilter);
+
+impl Params for SearchParams {
+    fn from_map(map: &params::ParamsMap) -> Result<Self, params::ParamsError> {
+        let before = map.get_str("b").and_then(|x| x.parse().ok());
+        let after = map.get_str("a").and_then(|x| x.parse().ok());
+        let rating = map.get_str("r").and_then(|x| x.parse().ok());
+        Ok(Self(SearchFilter {
+            before,
+            after,
+            rating,
+        }))
+    }
+}
+
+#[component]
+fn SearchPage() -> impl IntoView {
+    let params = use_query::<SearchParams>();
+    let data = use_context::<Arc<[PhotoLayoutData]>>().unwrap();
+    let view = move || {
+        let f = match params.get() {
+            Ok(SearchParams(f)) => f,
+            Err(_) => SearchFilter::default(),
+        };
+        let grid = data
+            .iter()
+            .filter(|x| f.matches(x))
+            .cloned()
+            .collect::<Arc<[PhotoLayoutData]>>();
+
+        view! { <PhotoGridComponent data=grid /> }
+    };
+
+    view()
 }
 
 #[island]
@@ -185,7 +230,6 @@ fn Gradient(children: Children) -> impl IntoView {
     let SliderHue { poline, .. } = expect_slider_hue();
 
     let color = Signal::derive(move || {
-        leptos::logging::log!("re run signal");
         let p = poline.read();
         let colors = p.colors();
         let len = colors.len();

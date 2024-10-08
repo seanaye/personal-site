@@ -1,0 +1,9 @@
+[package]
+name = "photo-search"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+chrono = "0.4.38"
+photogrid = { version = "0.1.0", path = "../photogrid" }
+serde = { version = "1.0.210", features = ["derive"] }

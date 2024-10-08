@@ -5,54 +5,47 @@ use grid::{FromAspectRatio, RoundedAspectRatio, Size};
 use leptos::prelude::*;
 use leptos_axum::{generate_route_list, LeptosRoutes};
 use photogrid::{PhotoLayoutData, ResponsivePhotoGrid, SrcSet};
-use serde::{Serialize};
-use std::{collections::HashMap, fs::File, io::Write, sync::Arc};
-
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use std::{collections::HashMap, fs::File, io::{Read, Write}, sync::Arc};
 mod bucket;
 
-async fn build_photo_grid() -> anyhow::Result<ResponsivePhotoGrid<PhotoLayoutData>> {
+async fn photo_data() -> anyhow::Result<impl Iterator<Item = PhotoLayoutData>> {
     let bucket = BucketAccess::new(get_bucket()?, "cdn.seanaye.ca");
 
     let data = bucket.list_resized().await?;
 
-    let photo_data: Vec<_> = data
-        .into_iter()
-        .filter_map(|(_key, value)| {
-            let aspect_ratio = value.first()?.dimension.aspect_ratio();
-            Some(PhotoLayoutData {
-                aspect_ratio,
-                srcs: value
-                    .into_iter()
-                    .map(|c| {
-                        SrcSet {
-                        dimensions: c.dimension,
-                        url: c.url,
-                    }})
-                    .collect(),
-                metadata: HashMap::new(),
-            })
+    Ok(data.into_iter().filter_map(|(_key, mut value)| {
+        let first = value.first_mut()?;
+        let aspect_ratio = first.dimension.aspect_ratio();
+        let metadata = std::mem::take(&mut first.metadata);
+        Some(PhotoLayoutData {
+            aspect_ratio,
+            srcs: value
+                .into_iter()
+                .map(|c| SrcSet {
+                    dimensions: c.dimension,
+                    url: c.url,
+                })
+                .collect(),
+            metadata,
         })
-        .collect();
-
-    Ok(ResponsivePhotoGrid::new(
-        photo_data,
-        [3, 4, 5, 8, 12],
-        |x, size| {
-            
-            let out = RoundedAspectRatio::<2>::from_aspect_ratio(&x.aspect_ratio).clamp_width_to(size);
-            if x.srcs[0].url.as_str().contains("5018") {
-                dbg!(&x, &out);
-                
-            }
-            out
-            },
-    ))
+    }))
 }
 
-fn write_to_file<T>(data: &T) where T: Serialize {
-    let mut f = File::create_new("data.json").unwrap();
+fn write_to_file<T>(data: &T)
+where
+    T: Serialize,
+{
+    let mut f = File::create("data.json").unwrap();
     let s = serde_json::to_string(data).unwrap();
     f.write_all(s.as_bytes()).unwrap();
+}
+
+fn cached<T>() -> T where T: DeserializeOwned {
+    let mut f = File::open("data.json").unwrap();
+    let mut s = String::default();
+    let _ = f.read_to_string(&mut s).unwrap();
+    serde_json::from_str(&s).unwrap()
 }
 
 #[tokio::main]
@@ -76,18 +69,17 @@ async fn main() {
     let addr = leptos_options.site_addr;
     let routes = generate_route_list(App);
 
-    // let g = build_photo_grid().await.unwrap();
+    // let g = photo_data().await.unwrap().collect::<Vec<_>>();
     // write_to_file(&g);
-    let g = ResponsivePhotoGrid::cached();
-    leptos::logging::log!("Built photo grid with {} items", g.contents_len());
-    let grid = Arc::new(g);
+    let data: Vec<PhotoLayoutData> = cached();
+    let photos: Arc<[PhotoLayoutData]> = Arc::from(data);
 
     // build our application with a route
     let app = Router::new()
         .leptos_routes_with_context(
             &leptos_options,
             routes,
-            move || provide_context(grid.clone()),
+            move || provide_context(photos.clone()),
             {
                 let leptos_options = leptos_options.clone();
                 move || shell(leptos_options.clone())

@@ -40,6 +40,7 @@ pub struct BucketAccess<'a> {
 pub struct ResizedImage {
     pub url: Url,
     pub dimension: Dimension,
+    pub metadata: HashMap<String, String>
 }
 
 impl<'a> BucketAccess<'a> {
@@ -89,13 +90,10 @@ impl<'a> BucketAccess<'a> {
                     host.replace_range(0..0, "https://");
                     let mut url: Url = host.parse().ok()?;
                     url.set_host(Some(self.host)).ok()?;
-                    let (head, _status) = self.bucket.head_object(c.key).await.ok()?;
-                    let metadata = &mut head.metadata?;
-                    let dimension: Dimension = metadata.get_mut("dimensions")?.parse().ok()?;
-                    Some(ResizedImage {
-                        url,
-                        dimension,
-                    })
+                    let (mut head, _status) = self.bucket.head_object(c.key).await.ok()?;
+                    let mut metadata = std::mem::take(&mut head.metadata)?;
+                    let dimension: Dimension = metadata.remove("dimensions")?.parse().ok()?;
+                    Some(ResizedImage { url, dimension, metadata })
                 })
                 .collect()
                 .await;

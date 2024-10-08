@@ -35,10 +35,11 @@ impl<T> CssStyle<GridOuterClass> for PhotoGrid<T> {
         let display = match width {
             12 => "hidden 2xl:grid grid-cols-12",
             8 => "hidden lg:max-2xl:grid grid-cols-8",
+            6 => "hidden md:max-lg:grid grid-cols-6",
             5 => "hidden md:max-lg:grid grid-cols-5",
             4 => "hidden sm:max-md:grid grid-cols-4",
             3 => "grid sm:hidden grid-cols-3",
-            _ => panic!("unmatched grid width"),
+            x => panic!("unmatched grid width {x}"),
         };
 
         format!("w-full {display}")
