@@ -42,10 +42,8 @@ where
 }
 
 fn cached<T>() -> T where T: DeserializeOwned {
-    let mut f = File::open("data.json").unwrap();
-    let mut s = String::default();
-    let _ = f.read_to_string(&mut s).unwrap();
-    serde_json::from_str(&s).unwrap()
+    let s = include_str!("../../data.json");
+    serde_json::from_str(s).unwrap()
 }
 
 #[tokio::main]
