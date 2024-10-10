@@ -173,7 +173,11 @@ fn Bio() -> impl IntoView {
 
 #[component]
 fn HomePage() -> impl IntoView {
-    let data = use_context::<Arc<[PhotoLayoutData]>>().unwrap();
+    let home_page_filter = SearchFilter {
+        before: Some(1727827200),
+        after: None,
+        rating: None,
+    };
     view! {
         <SliderProvider>
             <Canvas>
@@ -184,7 +188,7 @@ fn HomePage() -> impl IntoView {
                 <div />
             </Gradient>
         </SliderProvider>
-        <PhotoGridComponent data=data />
+        <FilteredPhotoGrid f=home_page_filter />
     }
 }
 
@@ -207,12 +211,18 @@ impl Params for SearchParams {
 #[component]
 fn SearchPage() -> impl IntoView {
     let params = use_query::<SearchParams>();
+    let f = match params.get() {
+        Ok(SearchParams(f)) => f,
+        Err(_) => SearchFilter::default(),
+    };
+    view! { <FilteredPhotoGrid f=f /> }
+}
+
+#[component]
+fn FilteredPhotoGrid(f: SearchFilter) -> impl IntoView {
     let data = use_context::<Arc<[PhotoLayoutData]>>().unwrap();
+
     let view = move || {
-        let f = match params.get() {
-            Ok(SearchParams(f)) => f,
-            Err(_) => SearchFilter::default(),
-        };
         let grid = data
             .iter()
             .filter(|x| f.matches(x))

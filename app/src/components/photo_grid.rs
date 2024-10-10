@@ -2,6 +2,7 @@ use grid::Size;
 use leptos::prelude::*;
 use photogrid::{PhotoLayoutData, ResponsivePhotoGrid, SrcSet};
 use std::sync::Arc;
+use url::Url;
 
 #[component]
 pub fn PhotoGridComponent(data: Arc<[PhotoLayoutData]>) -> impl IntoView {
@@ -24,19 +25,23 @@ pub fn PhotoGridComponent(data: Arc<[PhotoLayoutData]>) -> impl IntoView {
                         .grid
                         .into_iter()
                         .map(move |c| {
+                            let content = c.content();
+                            let first = content.srcs.first().expect("No srcs for image");
                             view! {
-                                <div
+                                <a
                                     class=format!(
                                         "p-1 flex items-center justify-center {}",
                                         c.style(GridElemClass),
                                     )
                                     style=c.style(GridElemStyle)
+                                    href=original(&first.url).to_string()
                                 >
                                     <img
                                         class="object-contain max-h-full max-w-full w-full"
-                                        srcset=srcsets(c.content().srcs.iter())
+                                        srcset=srcsets(content.srcs.iter())
+                                        loading="lazy"
                                     />
-                                </div>
+                                </a>
                             }
                         })
                         .collect_view()}
@@ -56,4 +61,22 @@ fn srcsets<'a>(s: impl Iterator<Item = &'a SrcSet>) -> String {
         acc.push_str("w,");
         acc
     })
+}
+
+fn original(s: &Url) -> Url {
+    let mut out = s.clone();
+    let segments = s.path_segments().expect("This must have a base");
+
+    out.path_segments_mut()
+        .expect("this must have a base")
+        .clear()
+        .push("original")
+        .push(
+            segments
+                .last()
+                .expect("There is a file here")
+                .replace(".avif", ".jpg")
+                .as_str(),
+        );
+    out
 }

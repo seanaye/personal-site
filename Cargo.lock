@@ -98,6 +98,7 @@ dependencies = [
  "serde_cbor",
  "streaming-iterator",
  "thiserror",
+ "url",
  "wasm-bindgen",
  "web-sys",
 ]
@@ -2830,6 +2831,7 @@ dependencies = [
  "leptos",
  "leptos_axum",
  "log",
+ "photo-search",
  "photogrid",
  "rust-s3",
  "serde",

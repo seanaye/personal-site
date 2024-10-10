@@ -11,6 +11,7 @@ leptos = { workspace = true, features = ["ssr"] }
 leptos_axum.workspace = true
 grid = { path = "../grid", features = ["parse"] }
 photogrid = { path = "../photogrid" }
+photo-search = { path = "../photo-search" }
 serde = { version = "1" }
 serde_json = { version = "1" }
 

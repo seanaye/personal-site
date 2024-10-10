@@ -9,7 +9,7 @@ pub struct SearchFilter {
     pub rating: Option<u8>,
 }
 
-trait PhotoAccess {
+pub trait PhotoAccess {
     fn get_timestamp(&self) -> DateTime<Utc>;
     fn get_rating(&self) -> u8;
 }

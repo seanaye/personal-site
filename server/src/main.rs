@@ -7,6 +7,7 @@ use leptos_axum::{generate_route_list, LeptosRoutes};
 use photogrid::{PhotoLayoutData, ResponsivePhotoGrid, SrcSet};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::{collections::HashMap, fs::File, io::{Read, Write}, sync::Arc};
+use photo_search::PhotoAccess;
 mod bucket;
 
 async fn photo_data() -> anyhow::Result<impl Iterator<Item = PhotoLayoutData>> {
@@ -66,10 +67,16 @@ async fn main() {
     let leptos_options = conf.leptos_options;
     let addr = leptos_options.site_addr;
     let routes = generate_route_list(App);
+    // a 1727827200
+    // b 1728259200
 
-    // let g = photo_data().await.unwrap().collect::<Vec<_>>();
+    // let mut g = photo_data().await.unwrap().collect::<Vec<_>>();
+    // g.sort_unstable_by_key(|item| {
+    //     item.get_timestamp()
+    // });
     // write_to_file(&g);
     let data: Vec<PhotoLayoutData> = cached();
+
     let photos: Arc<[PhotoLayoutData]> = Arc::from(data);
 
     // build our application with a route
