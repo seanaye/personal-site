@@ -1,7 +1,7 @@
 use app::*;
 use axum::Router;
 use bucket::{get_bucket, BucketAccess};
-use grid::{FromAspectRatio, RoundedAspectRatio, Size};
+use grid::{FromSize, RoundedAspectRatio, Size};
 use leptos::prelude::*;
 use leptos_axum::{generate_route_list, LeptosRoutes};
 use photogrid::{PhotoLayoutData, ResponsivePhotoGrid, SrcSet};
@@ -17,10 +17,8 @@ async fn photo_data() -> anyhow::Result<impl Iterator<Item = PhotoLayoutData>> {
 
     Ok(data.into_iter().filter_map(|(_key, mut value)| {
         let first = value.first_mut()?;
-        let aspect_ratio = first.dimension.aspect_ratio();
         let metadata = std::mem::take(&mut first.metadata);
         Some(PhotoLayoutData {
-            aspect_ratio,
             srcs: value
                 .into_iter()
                 .map(|c| SrcSet {

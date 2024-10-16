@@ -39,6 +39,7 @@ impl<T> CssStyle<GridOuterClass> for PhotoGrid<T> {
             5 => "hidden md:max-lg:grid grid-cols-5",
             4 => "hidden sm:max-md:grid grid-cols-4",
             3 => "grid sm:hidden grid-cols-3",
+            1 => "grid sm:hidden grid-cols-1",
             x => panic!("unmatched grid width {x}"),
         };
 

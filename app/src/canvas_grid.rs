@@ -74,7 +74,6 @@ impl Default for PolineManagerImpl {
 
 impl PolineManagerImpl {
     pub fn new(hue_offset: f64) -> Self {
-        leptos::logging::log!("new poline manager impl");
         let poline = Poline::builder()
             .num_points(256)
             .anchor_points(vec![

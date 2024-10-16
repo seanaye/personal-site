@@ -16,6 +16,8 @@ pub mod error_template;
 use leptos_router::params::Params;
 use photo_search::SearchFilter;
 use photogrid::{PhotoGrid, PhotoLayoutData};
+use rand::seq::SliceRandom;
+use rand::thread_rng;
 mod style;
 
 pub fn shell(options: LeptosOptions) -> impl IntoView {
@@ -71,7 +73,7 @@ fn Bio() -> impl IntoView {
 
     view! {
         <div class="flex justify-center items-center absolute inset-0">
-            <div class="max-w-3xl mx-auto p-4 mx-6 bg-white" style=shadow>
+            <div class="max-w-3xl p-4 mx-3 bg-white" style=shadow>
                 <div class="sm:flex">
                     <div class="flex-shrink-0 flex items-center px-4">
                         <img
@@ -188,7 +190,7 @@ fn HomePage() -> impl IntoView {
                 <div />
             </Gradient>
         </SliderProvider>
-        <FilteredPhotoGrid f=home_page_filter />
+        <FilteredPhotoGrid f=home_page_filter random=true />
     }
 }
 
@@ -215,24 +217,24 @@ fn SearchPage() -> impl IntoView {
         Ok(SearchParams(f)) => f,
         Err(_) => SearchFilter::default(),
     };
-    view! { <FilteredPhotoGrid f=f /> }
+    view! { <FilteredPhotoGrid f=f random=false /> }
 }
 
 #[component]
-fn FilteredPhotoGrid(f: SearchFilter) -> impl IntoView {
+fn FilteredPhotoGrid(f: SearchFilter, random: bool) -> impl IntoView {
     let data = use_context::<Arc<[PhotoLayoutData]>>().unwrap();
 
-    let view = move || {
-        let grid = data
-            .iter()
-            .filter(|x| f.matches(x))
-            .cloned()
-            .collect::<Arc<[PhotoLayoutData]>>();
+    let mut grid = data
+        .iter()
+        .filter(|x| f.matches(x))
+        .cloned()
+        .collect::<Vec<PhotoLayoutData>>();
 
-        view! { <PhotoGridComponent data=grid /> }
-    };
+    if random {
+        grid.shuffle(&mut thread_rng())
+    }
 
-    view()
+    view! { <PhotoGridComponent data=grid /> }.into_any()
 }
 
 #[island]

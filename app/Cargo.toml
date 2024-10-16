@@ -33,7 +33,6 @@ log.workspace = true
 leptos-use = { version = "0.14.0-beta1" }
 colorsys = "0.6.7"
 rand = "0.8.5"
-serde_cbor = "0.11.2"
 photo-search = { version = "0.1.0", path = "../photo-search" }
 url = "2.5.2"
 

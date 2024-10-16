@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use futures::{stream, StreamExt};
 use grid::{AspectRatio, Dimension};
 use itertools::Itertools;
+use list_bucket::{FlattenResult, ListRecursive};
 use s3::{
     bucket::Bucket, creds::Credentials, error::S3Error, serde_types::ListBucketResult, Region,
 };
@@ -48,37 +49,10 @@ impl<'a> BucketAccess<'a> {
         Self { bucket, host }
     }
 
-    #[async_recursion::async_recursion]
-    async fn list_recursive(&self, prefix: String) -> anyhow::Result<Vec<ListBucketResult>> {
-        let mut res = self.bucket.list(prefix, Some("/".into())).await?;
-
-        let common: Vec<_> = res
-            .iter_mut()
-            .flat_map(|r| {
-                r.common_prefixes
-                    .iter_mut()
-                    .flat_map(|v| v.iter_mut())
-                    .map(|v| std::mem::take(&mut v.prefix))
-            })
-            .collect();
-        stream::iter(common)
-            .then(|prefix| async move { self.list_recursive(prefix).await })
-            .collect::<Vec<_>>()
-            .await
-            .into_iter()
-            .try_fold(res, |mut acc, cur| {
-                acc.extend(cur?);
-                Ok(acc)
-            })
-    }
-
     pub async fn list_resized(&self) -> anyhow::Result<HashMap<String, Vec<ResizedImage>>> {
-        let res = self.list_recursive("resized/".into()).await?;
-        let mut objects: Vec<_> = res
-            .into_iter()
-            .flat_map(|c| c.contents.into_iter())
-            .filter_map(|c| Some((c.key.split("/").last()?.to_string(), c)))
-            .collect();
+        let res = self.bucket.list_recursive("resized/".into(), Some("/".into())).await?;
+        let mut objects: Vec<_> = res.flatten()
+            .filter_map(|c| Some((c.key.split("/").last()?.to_string(), c))).collect();
         objects.sort_unstable_by_key(|(key, _)| key.clone());
         let mut out = HashMap::new();
         for (key, val) in &objects.into_iter().chunk_by(|(key, _)| key.clone()) {

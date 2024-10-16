@@ -477,13 +477,18 @@ pub enum Orientation {
     Landscape,
 }
 
-pub trait FromAspectRatio {
-    fn from_aspect_ratio(ratio: &AspectRatio) -> Self;
+pub trait FromSize {
+    fn from_size<T>(ratio: &T) -> Self
+    where
+        T: Size;
 }
 
-impl FromAspectRatio for Orientation {
-    fn from_aspect_ratio(ratio: &AspectRatio) -> Self {
-        match ratio.width.cmp(&ratio.height) {
+impl FromSize for Orientation {
+    fn from_size<T>(ratio: &T) -> Self
+    where
+        T: Size,
+    {
+        match ratio.width().cmp(&ratio.height()) {
             Ordering::Less | Ordering::Equal => Orientation::Portrait,
             Ordering::Greater => Orientation::Landscape,
         }
@@ -547,13 +552,16 @@ impl Size for NormalizedAspectRatio {
     }
 }
 
-impl FromAspectRatio for NormalizedAspectRatio {
-    fn from_aspect_ratio(ratio: &AspectRatio) -> Self {
-        let orientation = Orientation::from_aspect_ratio(ratio);
+impl FromSize for NormalizedAspectRatio {
+    fn from_size<T>(ratio: &T) -> Self
+    where
+        T: Size,
+    {
+        let orientation = Orientation::from_size(ratio);
 
         let (min, max) = match orientation {
-            Orientation::Portrait => (ratio.width, ratio.height),
-            Orientation::Landscape => (ratio.height, ratio.width),
+            Orientation::Portrait => (ratio.width(), ratio.height()),
+            Orientation::Landscape => (ratio.height(), ratio.width()),
         };
 
         let mut long_edge = max / min;
@@ -590,13 +598,16 @@ impl<const SIZE: usize> Size for RoundedAspectRatio<SIZE> {
     }
 }
 
-impl<const SIZE: usize> FromAspectRatio for RoundedAspectRatio<SIZE> {
-    fn from_aspect_ratio(ratio: &AspectRatio) -> Self {
-        let orientation = Orientation::from_aspect_ratio(ratio);
+impl<const SIZE: usize> FromSize for RoundedAspectRatio<SIZE> {
+    fn from_size<T>(ratio: &T) -> Self
+    where
+        T: Size,
+    {
+        let orientation = Orientation::from_size(ratio);
 
         let (min, max) = match orientation {
-            Orientation::Portrait => (ratio.width, ratio.height),
-            Orientation::Landscape => (ratio.height, ratio.width),
+            Orientation::Portrait => (ratio.width(), ratio.height()),
+            Orientation::Landscape => (ratio.height(), ratio.width()),
         };
 
         let divisor = min / SIZE;
@@ -613,26 +624,53 @@ impl<const SIZE: usize> FromAspectRatio for RoundedAspectRatio<SIZE> {
     }
 }
 
-impl<const SIZE: usize> RoundedAspectRatio<SIZE> {
-    pub fn clamp_width_to(self, max_width: usize) -> Dimension {
+/// configuration to prevent a dimension from going outside
+/// of these bounds
+#[derive(Debug, Default, Clone, Copy)]
+pub struct ClampConfig {
+    /// constrain the minimum width
+    pub min_width: Option<usize>,
+    /// constrain the maximum width
+    pub max_width: Option<usize>,
+}
+
+pub trait ClampWidthTo {
+    fn clamp_width_to(self, clamp_config: ClampConfig) -> Dimension;
+}
+
+impl<T> ClampWidthTo for T
+where
+    T: Size,
+{
+    fn clamp_width_to(self, clamp_config: ClampConfig) -> Dimension {
         let height = self.height();
         let width = self.width();
-        if width <= max_width {
-            // we do dont need to do anything, return
-            return Dimension {
-                width: self.width(),
-                height,
-            };
-        }
 
-        let shrink_factor = max_width as f64 / width as f64;
+        let max_is_clamped = clamp_config
+            .max_width
+            .and_then(|max| (width > max).then_some(max));
+        let min_is_clamped = clamp_config
+            .min_width
+            .and_then(|min| (width < min).then_some(min));
+
+        let clamped_to_width = match (min_is_clamped, max_is_clamped) {
+            (Some(_), Some(_)) => panic!("Invalid clamp configuration {clamp_config:?}"),
+            (None, None) => {
+                // we do dont need to do anything, return
+                return Dimension { width, height };
+            }
+            (Some(min), None) => min,
+            (None, Some(max)) => max,
+        };
+
+        let shrink_factor = clamped_to_width as f64 / width as f64;
         let shrunk_height = height as f64 * shrink_factor;
         let mut new_height = shrunk_height as usize;
         if new_height < 1 {
             new_height = 1;
         }
         Dimension {
-            width: max_width,
+            width: clamped_to_width,
             height: new_height,
         }
     }
@@ -646,7 +684,7 @@ mod tests {
 
     #[test]
     fn it_should_return_3_to_2_for_z6_dimensions() {
-        let a = RoundedAspectRatio::<2>::from_aspect_ratio(&crate::AspectRatio {
+        let a = RoundedAspectRatio::<2>::from_size(&crate::Dimension {
             width: 6048,
             height: 4024,
         });
@@ -656,7 +694,7 @@ mod tests {
 
     #[test]
     fn it_should_round_aspect() {
-        let a = RoundedAspectRatio::<2>::from_aspect_ratio(&crate::AspectRatio {
+        let a = RoundedAspectRatio::<2>::from_size(&crate::Dimension {
             width: 856,
             height: 1280,
         });
@@ -761,7 +799,7 @@ mod tests {
 
     #[test]
     fn off_by_1_aspect() {
-        let data = RoundedAspectRatio::<2>::from_aspect_ratio(&crate::AspectRatio {
+        let data = RoundedAspectRatio::<2>::from_size(&crate::Dimension {
             width: 3600,
             height: 2401,
         });
@@ -771,6 +809,24 @@ mod tests {
             RoundedAspectRatio {
                 long_edge: 3,
                 orientation: Orientation::Landscape
+            }
+        );
+    }
+
+    #[test]
+    fn it_should_handle_panorama() {
+        assert_matches!(
+            crate::Dimension {
+                width: 2048,
+                height: 838
+            }
+            .clamp_width_to(ClampConfig {
+                max_width: Some(3),
+                min_width: None
+            }),
+            crate::Dimension {
+                width: 3,
+                height: 1
             }
         );
     }

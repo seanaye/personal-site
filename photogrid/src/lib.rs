@@ -1,7 +1,8 @@
 use std::{collections::HashMap, ops::Not, sync::Arc};
 
 use grid::{
-    AspectRatio, Dimension, FromAspectRatio, Grid, GridContent, Intersect, RoundedAspectRatio, Size,
+    AspectRatio, ClampConfig, ClampWidthTo, Dimension, FromSize, Grid, GridContent, Intersect,
+    RoundedAspectRatio, Size,
 };
 use serde::{Deserialize, Serialize};
 use url::Url;
@@ -14,7 +15,6 @@ pub struct SrcSet {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct PhotoLayoutData {
-    pub aspect_ratio: AspectRatio,
     pub srcs: Vec<SrcSet>,
     pub metadata: HashMap<String, String>,
 }
@@ -87,21 +87,22 @@ where
 #[derive(Clone)]
 pub struct ResponsivePhotoGrid<T> {
     grids: Vec<PhotoGrid<usize>>,
-    data: Arc<[T]>,
+    data: Vec<T>,
 }
 
 impl<T> ResponsivePhotoGrid<T> {
-    pub fn new<C, U>(photos: Arc<[T]>, sizes: impl IntoIterator<Item = usize>, mut cb: C) -> Self
+    pub fn new<C, U>(photos: Vec<T>, sizes: impl IntoIterator<Item = usize>, mut cb: C) -> Self
     where
-        C: for<'a> FnMut(&'a T, usize) -> U,
+        C: for<'a> FnMut(&'a T, (usize, usize)) -> U,
         U: Size,
     {
         let ids: Vec<usize> = photos.iter().enumerate().map(|(idx, _)| idx).collect();
         let grids = sizes
             .into_iter()
-            .map(|size| {
+            .enumerate()
+            .map(|(idx, size)| {
                 PhotoGrid::new_with_mapper(ids.as_slice(), size, |id| {
-                    cb(photos.get(*id).unwrap(), size)
+                    cb(photos.get(*id).unwrap(), (idx, size))
                 })
             })
             .collect();
@@ -150,21 +151,27 @@ impl<T> ResponsivePhotoGrid<T> {
 }
 
 impl ResponsivePhotoGrid<PhotoLayoutData> {
-    pub fn testing() -> Self {
-        let s = r#"[{"aspect_ratio":{"width":3600,"height":2401},"srcs":[{"dimensions":{"width":3600,"height":2401},"url":"https://images.unsplash.com/photo-1719937206300-fc0dac6f8cac?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w2NDAzNjV8MXwxfGFsbHwxfHx8fHx8Mnx8MTcyNDQyNzIwMXw&ixlib=rb-4.0.3&q=80&w=1080"}],"metadata":{}},{"aspect_ratio":{"width":2095,"height":2521},"srcs":[{"dimensions":{"width":2095,"height":2521},"url":"https://images.unsplash.com/photo-1724198169550-ba2fde71cfc7?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w2NDAzNjV8MHwxfGFsbHwyfHx8fHx8Mnx8MTcyNDQyNzIwMXw&ixlib=rb-4.0.3&q=80&w=1080"}],"metadata":{}},{"aspect_ratio":{"width":4000,"height":6000},"srcs":[{"dimensions":{"width":4000,"height":6000},"url":"https://images.unsplash.com/photo-1724384108758-dcc4f20518d7?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w2NDAzNjV8MHwxfGFsbHwzfHx8fHx8Mnx8MTcyNDQyNzIwMXw&ixlib=rb-4.0.3&q=80&w=1080"}],"metadata":{}},{"aspect_ratio":{"width":8467,"height":11289},"srcs":[{"dimensions":{"width":8467,"height":11289},"url":"https://images.unsplash.com/photo-1724368202147-121dae0bd49d?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w2NDAzNjV8MHwxfGFsbHw0fHx8fHx8Mnx8MTcyNDQyNzIwMXw&ixlib=rb-4.0.3&q=80&w=1080"}],"metadata":{}},{"aspect_ratio":{"width":11648,"height":8736},"srcs":[{"dimensions":{"width":11648,"height":8736},"url":"https://images.unsplash.com/photo-1724368202141-ef6f3522f50f?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w2NDAzNjV8MHwxfGFsbHw1fHx8fHx8Mnx8MTcyNDQyNzIwMXw&ixlib=rb-4.0.3&q=80&w=1080"}],"metadata":{}},{"aspect_ratio":{"width":4000,"height":6000},"srcs":[{"dimensions":{"width":4000,"height":6000},"url":"https://images.unsplash.com/photo-1720048171527-208cb3e93192?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w2NDAzNjV8MXwxfGFsbHw2fHx8fHx8Mnx8MTcyNDQyNzIwMXw&ixlib=rb-4.0.3&q=80&w=1080"}],"metadata":{}},{"aspect_ratio":{"width":2958,"height":3697},"srcs":[{"dimensions":{"width":2958,"height":3697},"url":"https://images.unsplash.com/photo-1724254351233-914fd32f2515?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w2NDAzNjV8MHwxfGFsbHw3fHx8fHx8Mnx8MTcyNDQyNzIwMXw&ixlib=rb-4.0.3&q=80&w=1080"}],"metadata":{}},{"aspect_ratio":{"width":8736,"height":11648},"srcs":[{"dimensions":{"width":8736,"height":11648},"url":"https://images.unsplash.com/photo-1724368202143-3781f7b30d23?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w2NDAzNjV8MHwxfGFsbHw4fHx8fHx8Mnx8MTcyNDQyNzIwMXw&ixlib=rb-4.0.3&q=80&w=1080"}],"metadata":{}},{"aspect_ratio":{"width":4160,"height":6240},"srcs":[{"dimensions":{"width":4160,"height":6240},"url":"https://images.unsplash.com/photo-1724348264169-6addad93be28?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w2NDAzNjV8MHwxfGFsbHw5fHx8fHx8Mnx8MTcyNDQyNzIwMXw&ixlib=rb-4.0.3&q=80&w=1080"}],"metadata":{}},{"aspect_ratio":{"width":2832,"height":4240},"srcs":[{"dimensions":{"width":2832,"height":4240},"url":"https://images.unsplash.com/photo-1724340557729-e4bbb15c63c0?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w2NDAzNjV8MHwxfGFsbHwxMHx8fHx8fDJ8fDE3MjQ0MjcyMDF8&ixlib=rb-4.0.3&q=80&w=1080"}],"metadata":{}}]"#;
-        let mut d: Vec<PhotoLayoutData> = serde_json::from_str(s).unwrap();
+    pub fn from_layout_data(data: Vec<PhotoLayoutData>) -> Self {
+        ResponsivePhotoGrid::new(data, [3, 4, 6, 8, 12], |x, (idx, size)| {
+            let dimensions = x
+                .srcs
+                .iter()
+                .map(|x| x.dimensions)
+                .max_by_key(|dim| dim.width)
+                .expect("There must be at least 1 srcset");
+            let rounded = RoundedAspectRatio::<2>::from_size(&dimensions);
+            let clamp = match (idx, size) {
+                (0, x) => ClampConfig {
+                    min_width: Some(x),
+                    max_width: Some(rounded.width()),
+                },
+                (_, x) => ClampConfig {
+                    min_width: None,
+                    max_width: Some(x),
+                },
+            };
 
-        d.extend(d.clone());
-
-        ResponsivePhotoGrid::new(Arc::from(d), [3, 4, 5, 8, 12], |x, size| {
-            RoundedAspectRatio::<2>::from_aspect_ratio(&x.aspect_ratio).clamp_width_to(size)
-        })
-        .grow_to_width()
-    }
-
-    pub fn from_layout_data(data: Arc<[PhotoLayoutData]>) -> Self {
-        ResponsivePhotoGrid::new(data, [3, 3, 6, 8, 12], |x, size| {
-            RoundedAspectRatio::<2>::from_aspect_ratio(&x.aspect_ratio).clamp_width_to(size)
+            rounded.clamp_width_to(clamp)
         })
     }
 }
