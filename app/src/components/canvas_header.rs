@@ -98,9 +98,9 @@ pub fn Canvas(children: Children) -> impl IntoView {
         true
     });
 
-    let reduce_scale = Signal::derive(move || match width.get() > 0.0 {
-        true => 2,
-        false => 1,
+    let reduce_scale = Signal::derive(move || match width.get() {
+        0.0..1000.0 => 2,
+        _ => 4,
     });
 
     let dots_width_sig =
