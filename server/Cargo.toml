@@ -9,19 +9,13 @@ edition = "2021"
 app = { path = "../app", default-features = false, features = ["ssr"] }
 leptos = { workspace = true, features = ["ssr"] }
 leptos_axum.workspace = true
-grid = { path = "../grid", features = ["parse"] }
-photogrid = { path = "../photogrid" }
-photo-search = { path = "../photo-search" }
-list-bucket = { path = "../list-bucket" }
-serde = { version = "1" }
-serde_json = { version = "1" }
-
 axum.workspace = true
 simple_logger.workspace = true
 tokio.workspace = true
 tower.workspace = true
 tower-http.workspace = true
 log.workspace = true
+
 rust-s3 = "0.35.1"
 anyhow = "1.0.87"
 itertools = "0.13.0"
@@ -30,3 +24,9 @@ futures = "0.3.30"
 dotenv = "0.15.0"
 async-recursion = "1.1.1"
 serde_cbor = "0.11.2"
+grid = { path = "../grid", features = ["parse"] }
+photogrid = { path = "../photogrid" }
+photo-search = { path = "../photo-search" }
+list-bucket = { path = "../list-bucket" }
+serde = { version = "1" }
+serde_json = { version = "1" }

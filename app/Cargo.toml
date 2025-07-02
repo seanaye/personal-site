@@ -10,13 +10,13 @@ leptos.workspace = true
 leptos_meta.workspace = true
 leptos_router.workspace = true
 leptos_axum = { workspace = true, optional = true }
-photogrid = { path = "../photogrid" }
-grid = { path = "../grid" }
 wasm-bindgen = { workspace = true }
-liquid = { path = "../liquid" }
 http.workspace = true
 cfg-if.workspace = true
 thiserror.workspace = true
+log.workspace = true
+
+liquid = { path = "../liquid" }
 web-sys = { version = "=0.3.70", features = [
   'CanvasRenderingContext2d',
   'Document',
@@ -25,11 +25,12 @@ web-sys = { version = "=0.3.70", features = [
   'Window',
   'ImageData',
 ] }
+photogrid = { path = "../photogrid" }
+grid = { path = "../grid" }
 streaming-iterator = "0.1.9"
 poline-rs = { git = "https://github.com/seanaye/poline-rs" }
 num-traits = "0.2.19"
 gloo = "0.11.0"
-log.workspace = true
 leptos-use = { version = "0.14.0-beta1" }
 colorsys = "0.6.7"
 rand = "0.8.5"
