@@ -1,5 +1,3 @@
-use wasm_bindgen::JsValue;
-
 pub trait LogJsError<T, U> {
     fn log_and_consume(self) -> Result<T, ()>;
 }

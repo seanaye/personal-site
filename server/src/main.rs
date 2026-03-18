@@ -49,7 +49,7 @@ fn cached<T>() -> T where T: DeserializeOwned {
 async fn main() {
     simple_logger::init_with_level(log::Level::Debug).expect("couldn't initialize logging");
     #[cfg(debug_assertions)]
-    dotenv::dotenv().unwrap();
+    let _ = dotenv::dotenv();
 
     // Setting get_configuration(None) means we'll be using cargo-leptos's env values
     // For deployment these variables are:

@@ -1,16 +1,15 @@
-use grid::{Coord, Dimension};
+use grid::Coord;
 use leptos::{html, prelude::*};
 use num_traits::FromPrimitive;
 use std::time::Duration;
 use wasm_bindgen::prelude::*;
 
 use crate::{
-    canvas_grid::{
-        CanvasEventManager, CanvasParams, Draw, Event, EventState, LiquidGridImageCanvas,
-        PolineManager, PolineManagerImpl,
-    },
+    canvas_grid::{Event, EventState, PolineManager, PolineManagerImpl},
     hooks::{use_elem_size, UseWindowSizeReturn},
 };
+#[cfg(feature = "hydrate")]
+use crate::wgpu_renderer::WgpuLiquidRenderer;
 
 #[island]
 pub fn Slider() -> impl IntoView {
@@ -77,7 +76,6 @@ pub fn SliderProvider(children: Children) -> impl IntoView {
 pub fn Canvas(children: Children) -> impl IntoView {
     let outer_size: NodeRef<html::Div> = NodeRef::new();
     let canvas_ref: NodeRef<html::Canvas> = NodeRef::new();
-    let canvas_ref_hidden: NodeRef<html::Canvas> = NodeRef::new();
 
     let UseWindowSizeReturn { width, height } = use_elem_size(outer_size);
 
@@ -98,17 +96,6 @@ pub fn Canvas(children: Children) -> impl IntoView {
         true
     });
 
-    let reduce_scale = Signal::derive(move || match width.get() {
-        0.0..1000.0 => 2,
-        _ => 4,
-    });
-
-    let dots_width_sig =
-        Signal::derive(move || usize::from_f64(width.get()).unwrap() / reduce_scale.get());
-
-    let dots_height_sig =
-        Signal::derive(move || usize::from_f64(height.get()).unwrap() / reduce_scale.get());
-
     let on_cancel = move || {
         log::info!("aborted compute events");
         set_cancel_count.update(|c| {
@@ -125,8 +112,14 @@ pub fn Canvas(children: Children) -> impl IntoView {
 
         set_events.set(EventState::default());
 
-        let dots_width = dots_width_sig.get_untracked();
-        let dots_height = dots_height_sig.get_untracked();
+        let w = width.get_untracked();
+        let h = height.get_untracked();
+        let dots_width = usize::from_f64(w).unwrap_or(0);
+        let dots_height = usize::from_f64(h).unwrap_or(0);
+
+        if dots_width == 0 || dots_height == 0 {
+            return Err(JsValue::NULL);
+        }
 
         let handle = set_interval_with_handle(
             move || {
@@ -135,7 +128,8 @@ pub fn Canvas(children: Children) -> impl IntoView {
                 set_events.update(move |c| {
                     c.add_event(Event::AddDrop {
                         coord: Coord {
-                            x: usize::from_f64(f_x * f64::from_usize(dots_width).unwrap()).unwrap(),
+                            x: usize::from_f64(f_x * f64::from_usize(dots_width).unwrap())
+                                .unwrap(),
                             y: usize::from_f64(f_y * f64::from_usize(dots_height).unwrap())
                                 .unwrap(),
                         },
@@ -145,39 +139,44 @@ pub fn Canvas(children: Children) -> impl IntoView {
             Duration::from_millis(2000),
         );
 
-        request_animation_frame(move || {
-            fn helper<T, U>(mut g: T, on_cancel: U)
-            where
-                T: Draw + CanvasEventManager + 'static,
-                U: Fn() + 'static,
-            {
-                let Ok(_) = g.compute_events() else {
-                    on_cancel();
-                    return;
-                };
-                let Ok(_) = g.draw() else {
-                    log::info!("failed to draw");
-                    return;
-                };
-                #[cfg(not(debug_assertions))]
-                request_animation_frame(move || helper(g, on_cancel));
-            }
+        #[cfg(feature = "hydrate")]
+        {
+            let canvas_el = canvas_ref.get_untracked().expect("Canvas not loaded");
+            let canvas_html: web_sys::HtmlCanvasElement = canvas_el.into();
 
-            helper(
-                LiquidGridImageCanvas::new(CanvasParams {
-                    size: Dimension {
-                        width: dots_width,
-                        height: dots_height,
-                    },
-                    visible_canvas: canvas_ref,
-                    hidden_canvas: canvas_ref_hidden,
+            wasm_bindgen_futures::spawn_local(async move {
+                let renderer = WgpuLiquidRenderer::new(
+                    canvas_html,
+                    dots_width as u32,
+                    dots_height as u32,
                     events,
                     clear_events,
                     poline,
-                }),
-                on_cancel,
-            )
-        });
+                )
+                .await;
+
+                let Some(renderer) = renderer else {
+                    log::error!("Failed to initialize WebGPU renderer");
+                    return;
+                };
+
+                fn animation_loop<T: Fn() + 'static>(
+                    mut renderer: WgpuLiquidRenderer<T>,
+                    on_cancel: impl Fn() + 'static,
+                ) {
+                    request_animation_frame(move || {
+                        match renderer.draw() {
+                            Ok(()) => animation_loop(renderer, on_cancel),
+                            Err(()) => {
+                                on_cancel();
+                            }
+                        }
+                    });
+                }
+
+                animation_loop(renderer, on_cancel);
+            });
+        }
 
         handle
     });
@@ -189,8 +188,8 @@ pub fn Canvas(children: Children) -> impl IntoView {
             on:pointermove=move |ev| {
                 let e = Event::AddDrop {
                     coord: Coord {
-                        x: ev.page_x() as usize / reduce_scale.get_untracked(),
-                        y: ev.page_y() as usize / reduce_scale.get_untracked(),
+                        x: ev.page_x() as usize,
+                        y: ev.page_y() as usize,
                     },
                 };
                 set_events.update(move |v| v.add_event(e));
@@ -198,8 +197,8 @@ pub fn Canvas(children: Children) -> impl IntoView {
             on:click=move |ev| {
                 let e = Event::AddDrop {
                     coord: Coord {
-                        x: ev.page_x() as usize / reduce_scale.get_untracked(),
-                        y: ev.page_y() as usize / reduce_scale.get_untracked(),
+                        x: ev.page_x() as usize,
+                        y: ev.page_y() as usize,
                     },
                 };
                 set_events.update(move |v| v.add_event(e));
@@ -212,12 +211,6 @@ pub fn Canvas(children: Children) -> impl IntoView {
                 class="absolute inset-0"
             />
             {children()}
-            <canvas
-                node_ref=canvas_ref_hidden
-                width=move || dots_width_sig.get()
-                height=move || dots_height_sig.get()
-                class="hidden"
-            />
         </div>
     }
 }

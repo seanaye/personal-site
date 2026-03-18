@@ -17,13 +17,11 @@ thiserror.workspace = true
 log.workspace = true
 
 liquid = { path = "../liquid" }
-web-sys = { version = "=0.3.70", features = [
-  'CanvasRenderingContext2d',
+web-sys = { version = "0.3.74", features = [
   'Document',
   'Element',
   'HtmlCanvasElement',
   'Window',
-  'ImageData',
 ] }
 photogrid = { path = "../photogrid" }
 grid = { path = "../grid" }
@@ -31,24 +29,25 @@ streaming-iterator = "0.1.9"
 poline-rs = { git = "https://github.com/seanaye/poline-rs" }
 num-traits = "0.2.19"
 gloo = "0.11.0"
-leptos-use = { version = "0.14.0-beta1" }
 colorsys = "0.6.7"
 rand = "0.8.5"
 photo-search = { version = "0.1.0", path = "../photo-search" }
 url = "2.5.2"
+wgpu = { version = "24", features = ["webgpu"], optional = true }
+bytemuck = { version = "1", features = ["derive"], optional = true }
+wasm-bindgen-futures = { version = "0.4", optional = true }
 
 [features]
 default = []
 hydrate = [
   "leptos/hydrate",
-  # "leptos_meta/hydrate",
-  # "leptos_router/hydrate",
+  "dep:wgpu",
+  "dep:bytemuck",
+  "dep:wasm-bindgen-futures",
 ]
 ssr = [
   "leptos/ssr",
   "leptos_meta/ssr",
   "leptos_router/ssr",
   "dep:leptos_axum",
-  "leptos-use/ssr",
-  "leptos-use/axum",
 ]
