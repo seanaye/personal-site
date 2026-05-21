@@ -183,17 +183,14 @@ pub fn Canvas(children: Children) -> impl IntoView {
     let (random_drop_tick, set_random_drop_tick) = signal(0u64);
 
     Effect::new(move |val: Option<Result<TimeoutHandle, JsValue>>| {
-        cancel_count.read();
         random_drop_tick.track();
         let hidden = document_hidden.get();
         if let Some(Ok(timeout)) = &val {
             timeout.clear();
         }
 
-        set_events.set(EventState::default());
-
-        let w = width.get_untracked();
-        let h = height.get_untracked();
+        let w = width.get();
+        let h = height.get();
         let dots_width = usize::from_f64(w).unwrap_or(0);
         let dots_height = usize::from_f64(h).unwrap_or(0);
 
@@ -201,7 +198,7 @@ pub fn Canvas(children: Children) -> impl IntoView {
             return Err(JsValue::NULL);
         }
 
-        let handle = set_timeout_with_handle(
+        set_timeout_with_handle(
             move || {
                 let f_x: f64 = rand::random();
                 let f_y: f64 = rand::random();
@@ -218,7 +215,21 @@ pub fn Canvas(children: Children) -> impl IntoView {
                 set_random_drop_tick.update(|tick| *tick = tick.wrapping_add(1));
             },
             Duration::from_millis(1000),
-        );
+        )
+    });
+
+    Effect::new(move |_| {
+        cancel_count.read();
+        set_events.set(EventState::default());
+
+        let w = width.get();
+        let h = height.get();
+        let dots_width = usize::from_f64(w).unwrap_or(0);
+        let dots_height = usize::from_f64(h).unwrap_or(0);
+
+        if dots_width == 0 || dots_height == 0 {
+            return;
+        }
 
         #[cfg(all(feature = "hydrate", target_arch = "wasm32"))]
         {
@@ -258,8 +269,6 @@ pub fn Canvas(children: Children) -> impl IntoView {
                 animation_loop(renderer, on_cancel);
             });
         }
-
-        handle
     });
 
     view! {
