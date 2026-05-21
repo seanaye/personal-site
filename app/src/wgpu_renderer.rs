@@ -22,7 +22,9 @@ const MAX_DROPS: usize = 16;
 struct DropsUniform {
     count: u32,
     _pad: [u32; 3],
-    coords: [[u32; 2]; MAX_DROPS],
+    // Uniform-buffer array elements need 16-byte stride on WebGL/WGSL.
+    // Store x/y in the first two lanes and leave z/w unused.
+    coords: [[u32; 4]; MAX_DROPS],
 }
 
 impl Default for DropsUniform {
@@ -30,7 +32,7 @@ impl Default for DropsUniform {
         Self {
             count: 0,
             _pad: [0; 3],
-            coords: [[0; 2]; MAX_DROPS],
+            coords: [[0; 4]; MAX_DROPS],
         }
     }
 }
@@ -561,7 +563,7 @@ where
                 match ev {
                     Event::AddDrop { coord } => {
                         let idx = drops.count as usize;
-                        drops.coords[idx] = [coord.x as u32, coord.y as u32];
+                        drops.coords[idx] = [coord.x as u32, coord.y as u32, 0, 0];
                         drops.count += 1;
                     }
                 }

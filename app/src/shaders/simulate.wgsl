@@ -10,7 +10,7 @@ struct Drops {
     _pad1: u32,
     _pad2: u32,
     _pad3: u32,
-    coords: array<vec2<u32>, 16>,
+    coords: array<vec4<u32>, 16>,
 }
 
 @group(0) @binding(0) var input_tex: texture_2d<f32>;
