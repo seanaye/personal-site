@@ -112,6 +112,27 @@ pub fn Canvas(children: Children) -> impl IntoView {
 
     let clear_events = move || set_events.update(|ev| ev.clear_events());
 
+    let (document_hidden, set_document_hidden) = signal(false);
+
+    #[cfg(all(feature = "hydrate", target_arch = "wasm32"))]
+    {
+        if let Some(document) = web_sys::window().and_then(|window| window.document()) {
+            set_document_hidden.set(document.hidden());
+
+            let listener = gloo::events::EventListener::new(&document, "visibilitychange", move |_| {
+                let hidden = web_sys::window()
+                    .and_then(|window| window.document())
+                    .is_some_and(|document| document.hidden());
+
+                set_document_hidden.set(hidden);
+                if hidden {
+                    set_events.update(|ev| ev.clear_events());
+                }
+            });
+            on_cleanup(move || drop(listener));
+        }
+    }
+
     let (cancel_count, set_cancel_count) = signal(0);
 
     let SliderHue { poline, .. } = expect_slider_hue();
@@ -135,6 +156,7 @@ pub fn Canvas(children: Children) -> impl IntoView {
 
     Effect::new(move |val: Option<Result<IntervalHandle, JsValue>>| {
         cancel_count.read();
+        let hidden = document_hidden.get();
         if let Some(Ok(interval)) = &val {
             interval.clear();
         }
@@ -146,20 +168,12 @@ pub fn Canvas(children: Children) -> impl IntoView {
         let dots_width = usize::from_f64(w).unwrap_or(0);
         let dots_height = usize::from_f64(h).unwrap_or(0);
 
-        if dots_width == 0 || dots_height == 0 {
+        if hidden || dots_width == 0 || dots_height == 0 {
             return Err(JsValue::NULL);
         }
 
         let handle = set_interval_with_handle(
             move || {
-                #[cfg(all(feature = "hydrate", target_arch = "wasm32"))]
-                if web_sys::window()
-                    .and_then(|window| window.document())
-                    .is_some_and(|document| document.hidden())
-                {
-                    return;
-                }
-
                 let f_x: f64 = rand::random();
                 let f_y: f64 = rand::random();
                 set_events.update(move |c| {
