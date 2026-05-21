@@ -187,10 +187,14 @@ where
     ) -> Option<Self> {
         ensure_gpu_canvas_context_constructor();
 
-        let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor {
-            backends: wgpu::Backends::BROWSER_WEBGPU,
+        let instance = wgpu::util::new_instance_with_webgpu_detection(&wgpu::InstanceDescriptor {
+            // Chrome on Linux and some Firefox configurations expose `navigator.gpu` but still
+            // return `null` from `requestAdapter()`. Let wgpu detect that case and fall back to
+            // WebGL2 rather than constructing a WebGPU-only instance that can never get an adapter.
+            backends: wgpu::Backends::BROWSER_WEBGPU | wgpu::Backends::GL,
             ..Default::default()
-        });
+        })
+        .await;
 
         let surface = match instance.create_surface(wgpu::SurfaceTarget::Canvas(canvas)) {
             Ok(surface) => surface,

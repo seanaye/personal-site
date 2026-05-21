@@ -34,7 +34,7 @@ colorsys = "0.6.7"
 rand = "0.8.5"
 photo-search = { version = "0.1.0", path = "../photo-search" }
 url = "2.5.2"
-wgpu = { version = "24", features = ["webgpu"], optional = true }
+wgpu = { version = "24", features = ["webgpu", "webgl"], optional = true }
 bytemuck = { version = "1", features = ["derive"], optional = true }
 wasm-bindgen-futures = { version = "0.4", optional = true }
 
