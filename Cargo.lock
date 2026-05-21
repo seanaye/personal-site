@@ -69,6 +69,7 @@ dependencies = [
  "gloo",
  "grid",
  "http 1.4.0",
+ "js-sys",
  "leptos",
  "leptos_axum",
  "leptos_meta",

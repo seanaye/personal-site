@@ -11,7 +11,7 @@ mod canvas_grid;
 mod components;
 mod hooks;
 mod log_js_trait;
-#[cfg(feature = "hydrate")]
+#[cfg(all(feature = "hydrate", target_arch = "wasm32"))]
 mod wgpu_renderer;
 use components::*;
 pub mod error_template;

@@ -8,7 +8,7 @@ use crate::{
     canvas_grid::{Event, EventState, PolineManager, PolineManagerImpl},
     hooks::{use_elem_size, UseWindowSizeReturn},
 };
-#[cfg(feature = "hydrate")]
+#[cfg(all(feature = "hydrate", target_arch = "wasm32"))]
 use crate::wgpu_renderer::WgpuLiquidRenderer;
 
 #[island]
@@ -69,8 +69,7 @@ pub fn expect_slider_hue() -> SliderHue {
 #[island]
 pub fn SliderProvider(children: Children) -> impl IntoView {
     use_provide_slider_hue();
-
-    view! { <div class="contents">{children()}</div> }
+    children()
 }
 
 #[island]
@@ -140,7 +139,7 @@ pub fn Canvas(children: Children) -> impl IntoView {
             Duration::from_millis(2000),
         );
 
-        #[cfg(feature = "hydrate")]
+        #[cfg(all(feature = "hydrate", target_arch = "wasm32"))]
         {
             let canvas_el = canvas_ref.get_untracked().expect("Canvas not loaded");
             let canvas_html: web_sys::HtmlCanvasElement = canvas_el.into();

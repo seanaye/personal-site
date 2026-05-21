@@ -12,6 +12,7 @@ opt-level = 'z'
 leptos = { version = "0.8", features = [
   "nightly",
   "islands",
+  "islands-router",
 ] }
 leptos_meta = { version = "0.8" }
 leptos_router = { version = "0.8", features = ["nightly"] }

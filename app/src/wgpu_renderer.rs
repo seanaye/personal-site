@@ -1,5 +1,7 @@
 use bytemuck::{Pod, Zeroable};
 use leptos::prelude::*;
+#[cfg(target_arch = "wasm32")]
+use wasm_bindgen::JsCast;
 use wgpu::util::DeviceExt;
 
 use crate::canvas_grid::{Event, EventState, PolineManager, PolineManagerImpl};
@@ -137,6 +139,40 @@ fn upload_palette(queue: &wgpu::Queue, texture: &wgpu::Texture, colors: &[[u8; 3
     );
 }
 
+#[cfg(target_arch = "wasm32")]
+fn ensure_gpu_canvas_context_constructor() {
+    let global = js_sys::global();
+    let name = wasm_bindgen::JsValue::from_str("GPUCanvasContext");
+
+    if js_sys::Reflect::has(&global, &name).unwrap_or(false) {
+        return;
+    }
+
+    let Some(document) = web_sys::window().and_then(|window| window.document()) else {
+        return;
+    };
+
+    let Ok(canvas) = document
+        .create_element("canvas")
+        .and_then(|el| el.dyn_into::<web_sys::HtmlCanvasElement>().map_err(Into::into))
+    else {
+        return;
+    };
+
+    let Ok(Some(context)) = canvas.get_context("webgpu") else {
+        return;
+    };
+
+    let Ok(constructor) = js_sys::Reflect::get(&context, &wasm_bindgen::JsValue::from_str("constructor")) else {
+        return;
+    };
+
+    _ = js_sys::Reflect::set(&global, &name, &constructor);
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn ensure_gpu_canvas_context_constructor() {}
+
 impl<T> WgpuLiquidRenderer<T>
 where
     T: Fn() + 'static,
@@ -149,6 +185,8 @@ where
         clear_events: T,
         poline: Memo<PolineManagerImpl>,
     ) -> Option<Self> {
+        ensure_gpu_canvas_context_constructor();
+
         let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor {
             backends: wgpu::Backends::BROWSER_WEBGPU,
             ..Default::default()
