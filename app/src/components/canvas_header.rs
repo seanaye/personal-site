@@ -155,7 +155,7 @@ pub fn Canvas(children: Children) -> impl IntoView {
                     set_events.update(|ev| ev.clear_events());
                 }
             });
-            on_cleanup(move || drop(listener));
+            listener.forget();
         }
     }
 
