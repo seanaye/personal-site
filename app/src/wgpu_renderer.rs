@@ -293,7 +293,7 @@ where
         let sim_params = SimParams {
             width,
             height,
-            damping: 0.997,
+            damping: 0.994,
             _pad: 0.0,
         };
         let sim_params_buf = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {

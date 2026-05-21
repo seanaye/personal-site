@@ -144,7 +144,7 @@ pub fn Canvas(children: Children) -> impl IntoView {
                     })
                 });
             },
-            Duration::from_millis(750),
+            Duration::from_millis(1000),
         );
 
         #[cfg(all(feature = "hydrate", target_arch = "wasm32"))]
