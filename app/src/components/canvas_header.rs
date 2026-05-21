@@ -66,8 +66,17 @@ pub struct SliderHue {
 }
 
 pub fn use_provide_slider_hue() -> SliderHue {
-    let initial_hue = stored_hue_value().unwrap_or(0.0);
-    let (hue_value, set_hue_value) = signal(initial_hue);
+    // Start from the SSR value, then apply the browser-persisted value after
+    // hydration. If we initialize directly from localStorage, hydrated DOM like
+    // DebugPoline's inline styles can keep the server-rendered palette until a
+    // later signal change.
+    let (hue_value, set_hue_value) = signal(0.0);
+
+    Effect::new(move |_| {
+        if let Some(value) = stored_hue_value() {
+            set_hue_value.set(value);
+        }
+    });
 
     let colours = Memo::new_owning(move |last| {
         let value = hue_value.get();
