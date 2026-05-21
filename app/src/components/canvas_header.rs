@@ -40,27 +40,15 @@ fn store_hue_value(_value: f64) {}
 #[island]
 pub fn Slider() -> impl IntoView {
     let slider_update: SliderHue = expect_context();
-    let input_ref: NodeRef<html::Input> = NodeRef::new();
-
-    Effect::new(move |_| {
-        if let Some(input) = input_ref.get() {
-            if let Ok(value) = input.value().parse::<f64>() {
-                if value != slider_update.hue_value.get_untracked() {
-                    store_hue_value(value);
-                    slider_update.set_hue_value.set(value);
-                }
-            }
-        }
-    });
 
     view! {
         <input
-            node_ref=input_ref
             type="range"
             min=0
             max=360
+            autocomplete="off"
             class="accent-stone-700"
-            value=move || slider_update.hue_value.get()
+            prop:value=move || slider_update.hue_value.get()
             on:input=move |ev| {
                 let v: f64 = event_target_value(&ev).parse().unwrap();
                 store_hue_value(v);
