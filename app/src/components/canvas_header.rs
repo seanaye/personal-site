@@ -123,6 +123,14 @@ pub fn Canvas(children: Children) -> impl IntoView {
 
         let handle = set_interval_with_handle(
             move || {
+                #[cfg(all(feature = "hydrate", target_arch = "wasm32"))]
+                if web_sys::window()
+                    .and_then(|window| window.document())
+                    .is_some_and(|document| document.hidden())
+                {
+                    return;
+                }
+
                 let f_x: f64 = rand::random();
                 let f_y: f64 = rand::random();
                 set_events.update(move |c| {
