@@ -1,7 +1,7 @@
 use grid::Coord;
 use leptos::{html, prelude::*};
 use num_traits::FromPrimitive;
-use std::{cell::Cell, rc::Rc, time::Duration};
+use std::time::Duration;
 use wasm_bindgen::prelude::*;
 
 use crate::{
@@ -154,11 +154,14 @@ pub fn Canvas(children: Children) -> impl IntoView {
         set_events.update(|e| e.reset_cancel_state());
     };
 
-    Effect::new(move |val: Option<Result<IntervalHandle, JsValue>>| {
+    let (random_drop_tick, set_random_drop_tick) = signal(0u64);
+
+    Effect::new(move |val: Option<Result<TimeoutHandle, JsValue>>| {
         cancel_count.read();
+        random_drop_tick.track();
         let hidden = document_hidden.get();
-        if let Some(Ok(interval)) = &val {
-            interval.clear();
+        if let Some(Ok(timeout)) = &val {
+            timeout.clear();
         }
 
         set_events.set(EventState::default());
@@ -172,18 +175,8 @@ pub fn Canvas(children: Children) -> impl IntoView {
             return Err(JsValue::NULL);
         }
 
-        let last_random_drop_ms = Rc::new(Cell::new(js_sys::Date::now()));
-        let handle = set_interval_with_handle(
+        let handle = set_timeout_with_handle(
             move || {
-                #[cfg(all(feature = "hydrate", target_arch = "wasm32"))]
-                {
-                    let now = js_sys::Date::now();
-                    if now - last_random_drop_ms.get() < 900.0 {
-                        return;
-                    }
-                    last_random_drop_ms.set(now);
-                }
-
                 let f_x: f64 = rand::random();
                 let f_y: f64 = rand::random();
                 set_events.update(move |c| {
@@ -196,6 +189,7 @@ pub fn Canvas(children: Children) -> impl IntoView {
                         },
                     })
                 });
+                set_random_drop_tick.update(|tick| *tick = tick.wrapping_add(1));
             },
             Duration::from_millis(1000),
         );
