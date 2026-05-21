@@ -192,19 +192,41 @@ where
             ..Default::default()
         });
 
-        let surface = instance
-            .create_surface(wgpu::SurfaceTarget::Canvas(canvas))
-            .ok()?;
+        let surface = match instance.create_surface(wgpu::SurfaceTarget::Canvas(canvas)) {
+            Ok(surface) => surface,
+            Err(err) => {
+                log::error!("failed to create WebGPU surface: {err:?}");
+                return None;
+            }
+        };
 
-        let adapter = instance
-            .request_adapter(&wgpu::RequestAdapterOptions {
-                power_preference: wgpu::PowerPreference::HighPerformance,
-                compatible_surface: Some(&surface),
-                force_fallback_adapter: false,
-            })
-            .await?;
+        let mut adapter = None;
+        for power_preference in [
+            wgpu::PowerPreference::HighPerformance,
+            wgpu::PowerPreference::LowPower,
+            wgpu::PowerPreference::None,
+        ] {
+            adapter = instance
+                .request_adapter(&wgpu::RequestAdapterOptions {
+                    power_preference,
+                    compatible_surface: Some(&surface),
+                    force_fallback_adapter: false,
+                })
+                .await;
 
-        let (device, queue) = adapter
+            if adapter.is_some() {
+                break;
+            }
+        }
+
+        let Some(adapter) = adapter else {
+            log::error!(
+                "failed to request WebGPU adapter; navigator.gpu is present but no adapter was available"
+            );
+            return None;
+        };
+
+        let (device, queue) = match adapter
             .request_device(
                 &wgpu::DeviceDescriptor {
                     label: Some("liquid_device"),
@@ -216,7 +238,13 @@ where
                 None,
             )
             .await
-            .ok()?;
+        {
+            Ok(device_queue) => device_queue,
+            Err(err) => {
+                log::error!("failed to request WebGPU device: {err:?}");
+                return None;
+            }
+        };
 
         let surface_caps = surface.get_capabilities(&adapter);
         let surface_format = surface_caps
