@@ -69,7 +69,8 @@ pub fn expect_slider_hue() -> SliderHue {
 #[island]
 pub fn SliderProvider(children: Children) -> impl IntoView {
     use_provide_slider_hue();
-    children()
+
+    view! { <div class="contents">{children()}</div> }
 }
 
 #[island]
