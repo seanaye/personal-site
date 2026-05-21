@@ -71,13 +71,13 @@ impl PolineManagerImpl {
             .anchor_points(vec![
                 Hsl {
                     h: 263.0,
-                    s: 0.8,
-                    l: 0.2,
+                    s: 0.9,
+                    l: 0.16,
                 },
                 Hsl {
                     h: 154.0,
-                    s: 0.4,
-                    l: 0.9,
+                    s: 0.65,
+                    l: 0.72,
                 },
             ])
             .set_x_fn(PositionFn::Sinusoidal.get_fn())
