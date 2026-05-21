@@ -91,10 +91,10 @@ impl PolineManagerImpl {
         let mut out = Self {
             poline,
             colors,
-            abs_hue: hue_offset,
+            abs_hue: 0.0,
         };
         if hue_offset != 0.0 {
-            out.shift_hue(hue_offset);
+            out.set_hue(hue_offset);
         }
         out
     }
