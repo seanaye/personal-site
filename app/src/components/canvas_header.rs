@@ -11,12 +11,51 @@ use crate::{
 #[cfg(all(feature = "hydrate", target_arch = "wasm32"))]
 use crate::wgpu_renderer::WgpuLiquidRenderer;
 
+const HUE_STORAGE_KEY: &str = "liquid-hue";
+
+#[cfg(all(feature = "hydrate", target_arch = "wasm32"))]
+fn stored_hue_value() -> Option<f64> {
+    web_sys::window()
+        .and_then(|window| window.local_storage().ok().flatten())
+        .and_then(|storage| storage.get_item(HUE_STORAGE_KEY).ok().flatten())
+        .and_then(|value| value.parse().ok())
+}
+
+#[cfg(not(all(feature = "hydrate", target_arch = "wasm32")))]
+fn stored_hue_value() -> Option<f64> {
+    None
+}
+
+#[cfg(all(feature = "hydrate", target_arch = "wasm32"))]
+fn store_hue_value(value: f64) {
+    if let Some(storage) = web_sys::window().and_then(|window| window.local_storage().ok().flatten())
+    {
+        _ = storage.set_item(HUE_STORAGE_KEY, &value.to_string());
+    }
+}
+
+#[cfg(not(all(feature = "hydrate", target_arch = "wasm32")))]
+fn store_hue_value(_value: f64) {}
+
 #[island]
 pub fn Slider() -> impl IntoView {
     let slider_update: SliderHue = expect_context();
+    let input_ref: NodeRef<html::Input> = NodeRef::new();
+
+    Effect::new(move |_| {
+        if let Some(input) = input_ref.get() {
+            if let Ok(value) = input.value().parse::<f64>() {
+                if value != slider_update.hue_value.get_untracked() {
+                    store_hue_value(value);
+                    slider_update.set_hue_value.set(value);
+                }
+            }
+        }
+    });
 
     view! {
         <input
+            node_ref=input_ref
             type="range"
             min=0
             max=360
@@ -24,6 +63,7 @@ pub fn Slider() -> impl IntoView {
             value=move || slider_update.hue_value.get()
             on:input=move |ev| {
                 let v: f64 = event_target_value(&ev).parse().unwrap();
+                store_hue_value(v);
                 slider_update.set_hue_value.set(v)
             }
         />
@@ -38,12 +78,13 @@ pub struct SliderHue {
 }
 
 pub fn use_provide_slider_hue() -> SliderHue {
-    let (hue_value, set_hue_value) = signal(0.0);
+    let initial_hue = stored_hue_value().unwrap_or(0.0);
+    let (hue_value, set_hue_value) = signal(initial_hue);
 
     let colours = Memo::new_owning(move |last| {
         let value = hue_value.get();
         let Some(mut last) = last else {
-            return (PolineManagerImpl::default(), true);
+            return (PolineManagerImpl::new(value), true);
         };
 
         let prev = *last.abs_hue();

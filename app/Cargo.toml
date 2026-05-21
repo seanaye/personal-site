@@ -22,6 +22,7 @@ web-sys = { version = "0.3.74", features = [
   'Document',
   'Element',
   'HtmlCanvasElement',
+  'Storage',
   'Window',
 ] }
 photogrid = { path = "../photogrid" }
