@@ -70,20 +70,30 @@ impl PolineManagerImpl {
             .num_points(256)
             .anchor_points(vec![
                 Hsl {
-                    h: 263.0,
-                    s: 0.8,
-                    l: 0.2,
+                    h: 235.0,
+                    s: 0.95,
+                    l: 0.08,
                 },
                 Hsl {
-                    h: 154.0,
-                    s: 0.4,
-                    l: 0.9,
+                    h: 188.0,
+                    s: 0.9,
+                    l: 0.58,
+                },
+                Hsl {
+                    h: 48.0,
+                    s: 0.95,
+                    l: 0.86,
+                },
+                Hsl {
+                    h: 315.0,
+                    s: 0.85,
+                    l: 0.16,
                 },
             ])
             .set_x_fn(PositionFn::Sinusoidal.get_fn())
-            .set_y_fn(PositionFn::Quadratic.get_fn())
-            .set_z_fn(PositionFn::Sinusoidal.get_fn())
-            .invert_lightness(true)
+            .set_y_fn(PositionFn::Sinusoidal.get_fn())
+            .set_z_fn(PositionFn::Quadratic.get_fn())
+            .invert_lightness(false)
             .build()
             .unwrap();
 
