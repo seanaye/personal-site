@@ -1,7 +1,7 @@
 use grid::Coord;
 use leptos::{html, prelude::*};
 use num_traits::FromPrimitive;
-use std::time::Duration;
+use std::{cell::Cell, rc::Rc, time::Duration};
 use wasm_bindgen::prelude::*;
 
 use crate::{
@@ -172,8 +172,18 @@ pub fn Canvas(children: Children) -> impl IntoView {
             return Err(JsValue::NULL);
         }
 
+        let last_random_drop_ms = Rc::new(Cell::new(js_sys::Date::now()));
         let handle = set_interval_with_handle(
             move || {
+                #[cfg(all(feature = "hydrate", target_arch = "wasm32"))]
+                {
+                    let now = js_sys::Date::now();
+                    if now - last_random_drop_ms.get() < 900.0 {
+                        return;
+                    }
+                    last_random_drop_ms.set(now);
+                }
+
                 let f_x: f64 = rand::random();
                 let f_y: f64 = rand::random();
                 set_events.update(move |c| {
