@@ -40,9 +40,26 @@ fn store_hue_value(_value: f64) {}
 #[island]
 pub fn Slider() -> impl IntoView {
     let slider_update: SliderHue = expect_context();
+    let input_ref: NodeRef<html::Input> = NodeRef::new();
+
+    #[cfg(all(feature = "hydrate", target_arch = "wasm32"))]
+    request_animation_frame(move || {
+        // Browsers can restore range input values across reloads independently
+        // of Leptos state. Once the input is mounted, treat its DOM value as
+        // authoritative and sync the shared palette state to it.
+        if let Some(input) = input_ref.get_untracked() {
+            if let Ok(value) = input.value().parse::<f64>() {
+                if value != slider_update.hue_value.get_untracked() {
+                    store_hue_value(value);
+                    slider_update.set_hue_value.set(value);
+                }
+            }
+        }
+    });
 
     view! {
         <input
+            node_ref=input_ref
             type="range"
             min=0
             max=360
