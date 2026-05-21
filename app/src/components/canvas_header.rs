@@ -299,10 +299,19 @@ pub fn Canvas(children: Children) -> impl IntoView {
 #[island]
 pub fn DebugPoline() -> impl IntoView {
     let SliderHue { poline, .. } = expect_slider_hue();
+    let (hydrated, set_hydrated) = signal(false);
+
+    #[cfg(all(feature = "hydrate", target_arch = "wasm32"))]
+    request_animation_frame(move || set_hydrated.set(true));
 
     view! {
         <div class="pointer-events-none absolute left-0 top-0 h-lvh flex flex-wrap flex-col">
             {move || {
+                // Force one post-hydration rerender. The server renders this palette
+                // with hue 0, but the browser may restore/persist another hue before
+                // this island hydrates, leaving inline styles stale unless we patch
+                // them after hydration.
+                hydrated.track();
                 poline
                     .with(|p| {
                         p.colors()
