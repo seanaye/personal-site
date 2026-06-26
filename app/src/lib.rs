@@ -61,7 +61,12 @@ pub fn App() -> impl IntoView {
                     <Routes fallback=|| {
                         let mut outside_errors = Errors::default();
                         outside_errors.insert_with_default_key(AppError::NotFound);
-                        view! { <ErrorTemplate outside_errors /> }.into_view()
+                        view! {
+                            <LayoutContent>
+                                <ErrorTemplate outside_errors />
+                            </LayoutContent>
+                        }
+                        .into_view()
                     }>
                         <Route path=StaticSegment("") view=HomePage />
                         <Route path=StaticSegment("/photo") view=PhotoPage />
@@ -72,6 +77,15 @@ pub fn App() -> impl IntoView {
                 </main>
             </SliderProvider>
         </Router>
+    }
+}
+
+#[component]
+fn LayoutContent(children: Children) -> impl IntoView {
+    view! {
+        <div class="min-h-lvh pt-28 pr-4 pl-6 sm:pt-24 sm:pr-6 sm:pl-24">
+            {children()}
+        </div>
     }
 }
 
@@ -197,7 +211,11 @@ fn PhotoPage() -> impl IntoView {
         rating: None,
     };
 
-    view! { <FilteredPhotoGrid f=photo_filter random=true /> }
+    view! {
+        <LayoutContent>
+            <FilteredPhotoGrid f=photo_filter random=true />
+        </LayoutContent>
+    }
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -223,7 +241,11 @@ fn SearchPage() -> impl IntoView {
         Ok(SearchParams(f)) => f,
         Err(_) => SearchFilter::default(),
     };
-    view! { <FilteredPhotoGrid f=f random=false /> }
+    view! {
+        <LayoutContent>
+            <FilteredPhotoGrid f=f random=false />
+        </LayoutContent>
+    }
 }
 
 #[component]
