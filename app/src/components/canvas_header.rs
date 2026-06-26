@@ -73,7 +73,7 @@ pub fn Slider() -> impl IntoView {
             min=0
             max=360
             autocomplete="off"
-            class="nav-hue-slider w-24 appearance-none bg-transparent sm:w-40"
+            class="w-24 appearance-none bg-transparent accent-current [color:inherit] [&::-moz-range-thumb]:h-4 [&::-moz-range-thumb]:w-4 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:bg-current [&::-moz-range-track]:h-1 [&::-moz-range-track]:rounded-full [&::-moz-range-track]:bg-current [&::-webkit-slider-runnable-track]:h-1 [&::-webkit-slider-runnable-track]:rounded-full [&::-webkit-slider-runnable-track]:bg-current [&::-webkit-slider-thumb]:-mt-1.5 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:[-webkit-appearance:none] [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-current sm:w-40"
             prop:value=move || slider_update.hue_value.get()
             on:input=move |ev| {
                 let v: f64 = event_target_value(&ev).parse().unwrap();
