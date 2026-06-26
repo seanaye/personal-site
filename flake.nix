@@ -37,16 +37,46 @@
         craneLib = (crane.mkLib pkgs).overrideToolchain rustToolchain;
 
         # Must match the wasm-bindgen crate version in Cargo.lock exactly.
-        wasmBindgenCli = pkgs.rustPlatform.buildRustPackage rec {
-          pname = "wasm-bindgen-cli";
-          version = "0.2.126";
-          src = pkgs.fetchCrate {
-            inherit pname version;
-            hash = "sha256-H6Is3fiZVxZCfOMWK5dWMSrtn50VGv0sfdnsT+cTtyk=";
+        # Use upstream prebuilt binaries to avoid rebuilding/vendoring the CLI,
+        # which can fail when crates.io blocks bulk API downloads with 403s.
+        wasmBindgenCli =
+          let
+            version = "0.2.126";
+            targets = {
+              x86_64-linux = {
+                target = "x86_64-unknown-linux-musl";
+                hash = "sha256-BklI1Y4tbAp0UhZHemObppYhbWMJqqkCk50bhlsdhp0=";
+              };
+              aarch64-linux = {
+                target = "aarch64-unknown-linux-musl";
+                hash = "sha256-IkUSAlSp9smprfNgHz1SuzEwkhnpzqt2ludOJIhcRAo=";
+              };
+              x86_64-darwin = {
+                target = "x86_64-apple-darwin";
+                hash = "sha256-YBTcqZPIv4puwQtvzPvqv1mYQtAR9YpKu3Zpr+94RCI=";
+              };
+              aarch64-darwin = {
+                target = "aarch64-apple-darwin";
+                hash = "sha256-ffU2ur40XetogoFI29xxF5EYr9q0LYNUfHzr+/FCa9U=";
+              };
+            };
+            targetInfo = targets.${system};
+          in
+          pkgs.stdenvNoCC.mkDerivation {
+            pname = "wasm-bindgen-cli";
+            inherit version;
+            src = pkgs.fetchurl {
+              url = "https://github.com/wasm-bindgen/wasm-bindgen/releases/download/${version}/wasm-bindgen-${version}-${targetInfo.target}.tar.gz";
+              inherit (targetInfo) hash;
+            };
+            installPhase = ''
+              runHook preInstall
+              install -Dm755 wasm-bindgen $out/bin/wasm-bindgen
+              install -Dm755 wasm-bindgen-test-runner $out/bin/wasm-bindgen-test-runner
+              install -Dm755 wasm2es6js $out/bin/wasm2es6js
+              runHook postInstall
+            '';
           };
-          cargoHash = "sha256-VucqkXbCi4qtQzY/HrXiDnbSURsagPsdNVMn1Tw3UiY=";
-          doCheck = false;
-        };
 
         # Cargo sources plus files cargo-leptos/the app read at build time.
         src =
