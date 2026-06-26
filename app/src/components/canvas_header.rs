@@ -256,17 +256,27 @@ pub fn SliderProvider(children: Children) -> impl IntoView {
     children()
 }
 
-fn static_canvas_background_style() -> String {
-    let default_palette = PolineManagerImpl::new(DEFAULT_HUE_OFFSET_DEGREES);
-    let fallback = rgb_css(canvas_background_color(default_palette.colors()));
-    format!("background: var(--poline-background-color, {fallback});")
+fn canvas_background_style(poline: Memo<PolineManagerImpl>) -> String {
+    poline.with(|p| {
+        format!(
+            "background: {};",
+            rgb_css(canvas_background_color(p.colors()))
+        )
+    })
+}
+
+#[island]
+fn StaticCanvasBackground() -> impl IntoView {
+    let SliderHue { poline, .. } = use_slider_hue();
+
+    view! { <div class="absolute inset-0 h-lvh w-lvw" style=move || canvas_background_style(poline) /> }
 }
 
 #[component]
 pub fn StaticCanvas(children: Children) -> impl IntoView {
     view! {
         <div class="relative min-h-lvh overflow-hidden">
-            <div class="absolute inset-0 h-lvh w-lvw" style=static_canvas_background_style() />
+            <StaticCanvasBackground />
             {children()}
         </div>
     }
