@@ -188,14 +188,14 @@ fn readable_palette_style(poline: Memo<PolineManagerImpl>) -> String {
     )
 }
 
-#[island]
+#[component]
 pub fn PolineText(children: Children) -> impl IntoView {
     let SliderHue { poline, .. } = expect_slider_hue();
 
     view! { <div style=move || readable_palette_style(poline)>{children()}</div> }
 }
 
-#[island]
+#[component]
 pub fn NavBar() -> impl IntoView {
     let SliderHue { poline, .. } = expect_slider_hue();
 
