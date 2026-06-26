@@ -12,6 +12,7 @@ use crate::{
 use crate::wgpu_renderer::WgpuLiquidRenderer;
 
 const HUE_STORAGE_KEY: &str = "liquid-hue";
+const POINTER_MOVE_DROP_STRIDE: u8 = 4;
 
 #[cfg(all(feature = "hydrate", target_arch = "wasm32"))]
 fn stored_hue_value() -> Option<f64> {
@@ -135,6 +136,7 @@ pub fn Canvas(children: Children) -> impl IntoView {
     let UseWindowSizeReturn { width, height } = use_elem_size(outer_size);
 
     let (events, set_events) = signal(EventState::default());
+    let (pointer_move_count, set_pointer_move_count) = signal(0u8);
 
     let clear_events = move || set_events.update(|ev| ev.clear_events());
 
@@ -276,6 +278,16 @@ pub fn Canvas(children: Children) -> impl IntoView {
             node_ref=outer_size
             class="relative h-lvh w-lvw"
             on:pointermove=move |ev| {
+                let should_add_drop = pointer_move_count.with_untracked(|count| {
+                    count.wrapping_add(1) >= POINTER_MOVE_DROP_STRIDE
+                });
+                if should_add_drop {
+                    set_pointer_move_count.set(0);
+                } else {
+                    set_pointer_move_count.update(|count| *count = count.wrapping_add(1));
+                    return;
+                }
+
                 let e = Event::AddDrop {
                     coord: Coord {
                         x: ev.page_x() as usize,
