@@ -5,10 +5,11 @@ use std::sync::Arc;
 
 use crate::error_template::{AppError, ErrorTemplate};
 use canvas_grid::PolineManager;
+use include_dir::{include_dir, Dir};
 use leptos::prelude::*;
 use leptos_meta::*;
 use leptos_router::components::{Route, Router, Routes};
-use leptos_router::hooks::use_query;
+use leptos_router::hooks::{use_params, use_query};
 use leptos_router::*;
 mod canvas_grid;
 mod components;
@@ -70,6 +71,8 @@ pub fn App() -> impl IntoView {
                         .into_view()
                     }>
                         <Route path=StaticSegment("") view=HomePage />
+                        <Route path=StaticSegment("/blog") view=BlogPage />
+                        <Route path=(StaticSegment("/blog"), ParamSegment("slug")) view=BlogPostPage />
                         <Route path=StaticSegment("/photo") view=PhotoPage />
                         <Route path=StaticSegment("/search") view=SearchPage />
                     </Routes>
@@ -216,6 +219,134 @@ fn Markdown(content: &'static str) -> impl IntoView {
     let html = markdown_to_html(content);
 
     view! { <div inner_html=html /> }
+}
+
+static BLOG_DIR: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR/../blog");
+
+#[derive(Debug, Clone)]
+struct BlogPost {
+    slug: String,
+    title: String,
+    excerpt: Option<String>,
+    content: &'static str,
+}
+
+fn title_from_slug(slug: &str) -> String {
+    slug.split(['-', '_'])
+        .filter(|part| !part.is_empty())
+        .map(|part| {
+            let mut chars = part.chars();
+            match chars.next() {
+                Some(first) => first.to_uppercase().chain(chars).collect::<String>(),
+                None => String::new(),
+            }
+        })
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+fn markdown_title(markdown: &str) -> Option<String> {
+    markdown.lines().find_map(|line| {
+        line.strip_prefix("# ")
+            .map(str::trim)
+            .filter(|title| !title.is_empty())
+            .map(ToOwned::to_owned)
+    })
+}
+
+fn markdown_excerpt(markdown: &str) -> Option<String> {
+    markdown
+        .lines()
+        .map(str::trim)
+        .find(|line| !line.is_empty() && !line.starts_with('#'))
+        .map(ToOwned::to_owned)
+}
+
+fn blog_posts() -> Vec<BlogPost> {
+    let mut posts = BLOG_DIR
+        .files()
+        .filter(|file| file.path().extension().is_some_and(|ext| ext == "md"))
+        .filter_map(|file| {
+            let content = file.contents_utf8()?;
+            let slug = file.path().file_stem()?.to_str()?.to_owned();
+            let title = markdown_title(content).unwrap_or_else(|| title_from_slug(&slug));
+            let excerpt = markdown_excerpt(content);
+
+            Some(BlogPost {
+                slug,
+                title,
+                excerpt,
+                content,
+            })
+        })
+        .collect::<Vec<_>>();
+
+    posts.sort_by(|a, b| b.slug.cmp(&a.slug));
+    posts
+}
+
+fn blog_post(slug: &str) -> Option<BlogPost> {
+    blog_posts().into_iter().find(|post| post.slug == slug)
+}
+
+#[component]
+fn BlogPage() -> impl IntoView {
+    let posts = blog_posts();
+
+    view! {
+        <LayoutContent>
+            <div class="prose font-mono">
+                <h1>"blog"</h1>
+                {if posts.is_empty() {
+                    view! { <p>"No posts yet."</p> }.into_any()
+                } else {
+                    posts
+                        .into_iter()
+                        .map(|post| {
+                            let href = format!("/blog/{}", post.slug);
+                            view! {
+                                <article>
+                                    <h2><a href=href>{post.title}</a></h2>
+                                    {post.excerpt.map(|excerpt| view! { <p>{excerpt}</p> })}
+                                </article>
+                            }
+                        })
+                        .collect_view()
+                        .into_any()
+                }}
+            </div>
+        </LayoutContent>
+    }
+}
+
+#[derive(Debug, PartialEq, Clone)]
+struct BlogParams {
+    slug: String,
+}
+
+impl Params for BlogParams {
+    fn from_map(map: &params::ParamsMap) -> Result<Self, params::ParamsError> {
+        Ok(Self {
+            slug: map.get_str("slug").unwrap_or_default().to_owned(),
+        })
+    }
+}
+
+#[component]
+fn BlogPostPage() -> impl IntoView {
+    let params = use_params::<BlogParams>();
+    let post = params.get().ok().and_then(|params| blog_post(&params.slug));
+
+    view! {
+        <LayoutContent>
+            <div class="prose font-mono">
+                {match post {
+                    Some(post) => view! { <Markdown content=post.content /> }.into_any(),
+                    None => view! { <p>"Post not found."</p> }.into_any(),
+                }}
+            </div>
+        </LayoutContent>
+    }
 }
 
 #[component]
