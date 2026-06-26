@@ -17,3 +17,5 @@ playwright/.cache/
 
 .DS_Store
 .env
+
+secrets.json

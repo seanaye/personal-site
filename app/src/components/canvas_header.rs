@@ -123,6 +123,81 @@ pub fn expect_slider_hue() -> SliderHue {
     expect_context()
 }
 
+fn srgb_channel_to_linear(channel: u8) -> f64 {
+    let channel = channel as f64 / 255.0;
+    if channel <= 0.04045 {
+        channel / 12.92
+    } else {
+        ((channel + 0.055) / 1.055).powf(2.4)
+    }
+}
+
+fn relative_luminance([r, g, b]: [u8; 3]) -> f64 {
+    0.2126 * srgb_channel_to_linear(r)
+        + 0.7152 * srgb_channel_to_linear(g)
+        + 0.0722 * srgb_channel_to_linear(b)
+}
+
+fn contrast_ratio(a: [u8; 3], b: [u8; 3]) -> f64 {
+    let a = relative_luminance(a);
+    let b = relative_luminance(b);
+    let (lighter, darker) = if a >= b { (a, b) } else { (b, a) };
+
+    (lighter + 0.05) / (darker + 0.05)
+}
+
+fn readable_palette_color(colors: &[[u8; 3]]) -> [u8; 3] {
+    let Some(background) = colors.get(colors.len() / 2).copied() else {
+        return [255, 255, 255];
+    };
+
+    colors
+        .iter()
+        .copied()
+        .max_by(|a, b| {
+            contrast_ratio(*a, background)
+                .partial_cmp(&contrast_ratio(*b, background))
+                .unwrap_or(std::cmp::Ordering::Equal)
+        })
+        .unwrap_or([255, 255, 255])
+}
+
+fn rgb_css([r, g, b]: [u8; 3]) -> String {
+    format!("rgb({r}, {g}, {b})")
+}
+
+#[island]
+pub fn NavBar() -> impl IntoView {
+    let SliderHue { poline, .. } = expect_slider_hue();
+
+    let style = move || {
+        let text_color = poline.with(|p| readable_palette_color(p.colors()));
+        let shadow_color = if relative_luminance(text_color) > 0.5 {
+            "rgba(0, 0, 0, 0.55)"
+        } else {
+            "rgba(255, 255, 255, 0.55)"
+        };
+
+        format!(
+            "color: {}; text-shadow: 0 1px 2px {};",
+            rgb_css(text_color),
+            shadow_color
+        )
+    };
+
+    view! {
+        <nav
+            aria-label="Primary"
+            class="fixed left-0 top-0 z-50 flex gap-5 p-4 font-mono text-sm lowercase tracking-[0.2em] sm:gap-8 sm:p-6"
+            style=style
+        >
+            <a class="transition-opacity hover:opacity-75" href="/">"home"</a>
+            <a class="transition-opacity hover:opacity-75" href="/blog">"blog"</a>
+            <a class="transition-opacity hover:opacity-75" href="/#photography">"photography"</a>
+        </nav>
+    }
+}
+
 #[island]
 pub fn SliderProvider(children: Children) -> impl IntoView {
     use_provide_slider_hue();

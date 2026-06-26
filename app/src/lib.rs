@@ -186,6 +186,7 @@ fn HomePage() -> impl IntoView {
     view! {
         <SliderProvider>
             <Canvas>
+                <NavBar />
                 <DebugPoline />
                 <Bio />
             </Canvas>
@@ -193,7 +194,9 @@ fn HomePage() -> impl IntoView {
                 <div />
             </Gradient>
         </SliderProvider>
-        <FilteredPhotoGrid f=home_page_filter random=true />
+        <section id="photography">
+            <FilteredPhotoGrid f=home_page_filter random=true />
+        </section>
     }
 }
 
