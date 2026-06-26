@@ -240,7 +240,7 @@ fn BlogPage() -> impl IntoView {
         <Canvas>
             <LayoutContent>
                 <PolineText>
-                    <div class="prose font-mono prose-a:text-inherit prose-headings:text-inherit prose-p:text-inherit">
+                    <div class="prose font-mono [--tw-prose-body:currentColor] [--tw-prose-headings:currentColor] [--tw-prose-links:currentColor] [--tw-prose-bold:currentColor] [--tw-prose-counters:currentColor] [--tw-prose-bullets:currentColor] [--tw-prose-hr:currentColor] [--tw-prose-quotes:currentColor] [--tw-prose-quote-borders:currentColor] [--tw-prose-captions:currentColor] [--tw-prose-code:currentColor] [--tw-prose-pre-code:currentColor] [--tw-prose-th-borders:currentColor] [--tw-prose-td-borders:currentColor] prose-a:transition-opacity hover:prose-a:opacity-75">
                         <h1>"blog"</h1>
                         {if BLOG_POSTS.is_empty() {
                             view! { <p>"No posts yet."</p> }.into_any()
