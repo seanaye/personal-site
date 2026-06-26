@@ -1,4 +1,4 @@
-Hello, this page is currently under construction. I am experimenting with square packing algorithms based on aspect ratio instead of traditional masonry layouts.
+Hello, this page is currently under construction with placeholder images. I am experimenting with square packing algorithms based on aspect ratio instead of traditional masonry layouts.
 
 I find that the main drawback to using masonry layouts is that they will grow or shrink images to fit a certain column width, which ends up placing more emphasis on portrait orientation photos versus landscape ones.
 
