@@ -89,8 +89,7 @@ fn Bio() -> impl IntoView {
                         <h1 class="text-2xl text-center sm:text-left squiggly">sean aye</h1>
                         <p class="my-4">"code | photography | music"</p>
                         <p class="my-4">"Tech Lead at "<a href="https://macro.com" class="underline">"Macro"</a>" 🦀 ❄️"</p>
-                        <div class="flex flex-row justify-between items-center">
-                            <Slider />
+                        <div class="flex flex-row justify-end items-center">
                             <div class="flex gap-2">
                                 <a
                                     href="https://github.com/seanaye"

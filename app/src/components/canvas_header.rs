@@ -40,7 +40,7 @@ fn store_hue_value(value: f64) {
 #[cfg(not(all(feature = "hydrate", target_arch = "wasm32")))]
 fn store_hue_value(_value: f64) {}
 
-#[island]
+#[component]
 pub fn Slider() -> impl IntoView {
     let slider_update: SliderHue = expect_context();
     let input_ref: NodeRef<html::Input> = NodeRef::new();
@@ -73,7 +73,7 @@ pub fn Slider() -> impl IntoView {
             min=0
             max=360
             autocomplete="off"
-            class="accent-stone-700"
+            class="nav-hue-slider w-24 appearance-none bg-transparent sm:w-40"
             prop:value=move || slider_update.hue_value.get()
             on:input=move |ev| {
                 let v: f64 = event_target_value(&ev).parse().unwrap();
@@ -185,22 +185,24 @@ pub fn NavBar() -> impl IntoView {
             "rgba(255, 255, 255, 0.55)"
         };
 
+        let text_color = rgb_css(text_color);
         format!(
-            "color: {}; text-shadow: 0 1px 2px {};",
-            rgb_css(text_color),
-            shadow_color
+            "color: {text_color}; accent-color: {text_color}; text-shadow: 0 1px 2px {shadow_color};"
         )
     };
 
     view! {
         <nav
             aria-label="Primary"
-            class="fixed left-0 top-0 z-50 flex gap-5 py-4 pl-24 font-mono text-sm lowercase tracking-[0.2em] sm:gap-8 sm:py-6"
+            class="fixed inset-x-0 top-0 z-50 flex items-center justify-between gap-5 py-4 pr-4 pl-12 font-mono text-sm lowercase tracking-[0.2em] sm:gap-8 sm:py-6 sm:pr-6 sm:pl-12"
             style=style
         >
-            <a class="transition-opacity hover:opacity-75" href="/">"home"</a>
-            <a class="transition-opacity hover:opacity-75" href="/blog">"blog"</a>
-            <a class="transition-opacity hover:opacity-75" href="/#photography">"photography"</a>
+            <div class="flex gap-5 sm:gap-8">
+                <a class="transition-opacity hover:opacity-75" href="/">"home"</a>
+                <a class="transition-opacity hover:opacity-75" href="/blog">"blog"</a>
+                <a class="transition-opacity hover:opacity-75" href="/#photography">"photography"</a>
+            </div>
+            <Slider />
         </nav>
     }
 }
