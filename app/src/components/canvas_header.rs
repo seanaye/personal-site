@@ -1,5 +1,6 @@
 use grid::Coord;
 use leptos::{html, prelude::*};
+use leptos_router::components::A;
 use num_traits::FromPrimitive;
 use std::time::Duration;
 use wasm_bindgen::prelude::*;
@@ -205,9 +206,9 @@ pub fn NavBar() -> impl IntoView {
             style=move || readable_palette_style(poline)
         >
             <div class="flex gap-5 sm:gap-8">
-                <a class="transition-opacity hover:opacity-75" href="/">"home"</a>
-                <a class="transition-opacity hover:opacity-75" href="/blog">"blog"</a>
-                <a class="transition-opacity hover:opacity-75" href="/photo">"photography"</a>
+                <A href="/" {..} class="transition-opacity hover:opacity-75">"home"</A>
+                <A href="/blog" {..} class="transition-opacity hover:opacity-75">"blog"</A>
+                <A href="/photo" {..} class="transition-opacity hover:opacity-75">"photography"</A>
             </div>
             <Slider />
         </nav>

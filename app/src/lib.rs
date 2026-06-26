@@ -7,7 +7,7 @@ use crate::error_template::{AppError, ErrorTemplate};
 use canvas_grid::PolineManager;
 use leptos::prelude::*;
 use leptos_meta::*;
-use leptos_router::components::{Route, Router, Routes};
+use leptos_router::components::{Route, Router, Routes, A};
 use leptos_router::hooks::{use_params, use_query};
 use leptos_router::*;
 mod canvas_grid;
@@ -251,7 +251,7 @@ fn BlogPage() -> impl IntoView {
                                     let href = format!("/blog/{}", post.slug);
                                     view! {
                                         <article>
-                                            <h2><a href=href>{post.title}</a></h2>
+                                            <h2><A href=href>{post.title}</A></h2>
                                             {post.excerpt.map(|excerpt| view! { <p>{excerpt}</p> })}
                                         </article>
                                     }
