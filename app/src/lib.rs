@@ -21,6 +21,7 @@ pub mod error_template;
 use leptos_router::params::Params;
 use photo_search::SearchFilter;
 use photogrid::PhotoLayoutData;
+use pulldown_cmark::{html, Options, Parser};
 use rand::seq::SliceRandom;
 use rand::thread_rng;
 mod style;
@@ -203,6 +204,20 @@ fn HomePage() -> impl IntoView {
     }
 }
 
+fn markdown_to_html(markdown: &str) -> String {
+    let parser = Parser::new_ext(markdown, Options::all());
+    let mut html = String::new();
+    html::push_html(&mut html, parser);
+    html
+}
+
+#[component]
+fn Markdown(content: &'static str) -> impl IntoView {
+    let html = markdown_to_html(content);
+
+    view! { <div inner_html=html /> }
+}
+
 #[component]
 fn PhotoPage() -> impl IntoView {
     let photo_filter = SearchFilter {
@@ -213,6 +228,9 @@ fn PhotoPage() -> impl IntoView {
 
     view! {
         <LayoutContent>
+            <div class="prose font-mono">
+                <Markdown content=include_str!("content/photo.md") />
+            </div>
             <FilteredPhotoGrid f=photo_filter random=true />
         </LayoutContent>
     }
