@@ -189,6 +189,28 @@ fn relative_luminance([r, g, b]: [u8; 3]) -> f64 {
         + 0.0722 * srgb_channel_to_linear(b)
 }
 
+fn canvas_display_channel(channel: u8) -> u8 {
+    // The WGPU renderer samples palette colors as floats and writes them to an
+    // sRGB surface, so the browser displays the shader output after an sRGB
+    // encode. Mirror that here for static CSS backgrounds.
+    let channel = channel as f64 / 255.0;
+    let encoded = if channel <= 0.003_130_8 {
+        12.92 * channel
+    } else {
+        1.055 * channel.powf(1.0 / 2.4) - 0.055
+    };
+
+    (encoded.clamp(0.0, 1.0) * 255.0).round() as u8
+}
+
+fn canvas_display_color([r, g, b]: [u8; 3]) -> [u8; 3] {
+    [
+        canvas_display_channel(r),
+        canvas_display_channel(g),
+        canvas_display_channel(b),
+    ]
+}
+
 fn contrast_ratio(a: [u8; 3], b: [u8; 3]) -> f64 {
     let a = relative_luminance(a);
     let b = relative_luminance(b);
@@ -198,7 +220,11 @@ fn contrast_ratio(a: [u8; 3], b: [u8; 3]) -> f64 {
 }
 
 fn canvas_background_color(colors: &[[u8; 3]]) -> [u8; 3] {
-    colors.get(colors.len() / 2).copied().unwrap_or([0, 0, 0])
+    colors
+        .get(colors.len() / 2)
+        .copied()
+        .map(canvas_display_color)
+        .unwrap_or([0, 0, 0])
 }
 
 fn readable_palette_color(colors: &[[u8; 3]]) -> [u8; 3] {
