@@ -1,3 +1,6 @@
+#![recursion_limit = "256"]
+#![allow(dead_code, unused_imports, unused_variables)]
+
 use std::sync::Arc;
 
 use crate::error_template::{AppError, ErrorTemplate};
@@ -69,8 +72,6 @@ pub fn App() -> impl IntoView {
 
 #[component]
 fn Bio() -> impl IntoView {
-    let description = "code | photography | music";
-    let description_2 = "Senior Rust Developer at 1Password";
     let shadow = "box-shadow: rgba(68, 64, 60, 0.8) 2rem 2rem;";
 
     view! {
@@ -86,8 +87,8 @@ fn Bio() -> impl IntoView {
                     </div>
                     <div class="font-mono px-4">
                         <h1 class="text-2xl text-center sm:text-left squiggly">sean aye</h1>
-                        <p class="my-4">{description}</p>
-                        <p class="my-4">{description_2}</p>
+                        <p class="my-4">"code | photography | music"</p>
+                        <p class="my-4">"Tech Lead at "<a href="https://macro.com" class="underline">"Macro"</a>" 🦀 ❄️"</p>
                         <div class="flex flex-row justify-between items-center">
                             <Slider />
                             <div class="flex gap-2">

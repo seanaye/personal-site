@@ -1,7 +1,7 @@
-use std::{collections::HashMap, ops::Not, sync::Arc};
+use std::{collections::HashMap, ops::Not};
 
 use grid::{
-    AspectRatio, ClampConfig, ClampWidthTo, Dimension, FromSize, Grid, GridContent, Intersect,
+    ClampConfig, ClampWidthTo, Dimension, FromSize, Grid, GridContent, Intersect,
     RoundedAspectRatio, Size,
 };
 use serde::{Deserialize, Serialize};

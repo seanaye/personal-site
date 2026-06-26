@@ -1,15 +1,27 @@
-use futures::{stream, StreamExt};
 use async_recursion::async_recursion;
-use s3::{error::S3Error, serde_types::{ListBucketResult, Object}, Bucket};
+use futures::{stream, StreamExt};
+use s3::{
+    error::S3Error,
+    serde_types::{ListBucketResult, Object},
+    Bucket,
+};
 
 #[async_trait::async_trait]
 pub trait ListRecursive {
-    async fn list_recursive(&self, prefix: String, delimiter: Option<String>) -> Result<Vec<ListBucketResult>, S3Error>;
+    async fn list_recursive(
+        &self,
+        prefix: String,
+        delimiter: Option<String>,
+    ) -> Result<Vec<ListBucketResult>, S3Error>;
 }
 
 impl ListRecursive for Bucket {
     #[async_recursion]
-    async fn list_recursive(&self, prefix: String, delimiter: Option<String>) -> Result<Vec<ListBucketResult>, S3Error> {
+    async fn list_recursive(
+        &self,
+        prefix: String,
+        delimiter: Option<String>,
+    ) -> Result<Vec<ListBucketResult>, S3Error> {
         let mut res = self.list(prefix, delimiter.clone()).await?;
 
         let common: Vec<_> = res
@@ -24,7 +36,8 @@ impl ListRecursive for Bucket {
         stream::iter(common)
             .then(|prefix| {
                 let delimiter = delimiter.clone();
-                async move { self.list_recursive(prefix, delimiter).await} })
+                async move { self.list_recursive(prefix, delimiter).await }
+            })
             .collect::<Vec<_>>()
             .await
             .into_iter()
@@ -41,8 +54,6 @@ pub trait FlattenResult {
 
 impl FlattenResult for Vec<ListBucketResult> {
     fn flatten(self) -> impl Iterator<Item = Object> {
-        self
-            .into_iter()
-            .flat_map(|c| c.contents.into_iter())
+        self.into_iter().flat_map(|c| c.contents.into_iter())
     }
 }

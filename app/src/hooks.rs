@@ -37,10 +37,9 @@ pub fn use_elem_size(el: NodeRef<Div>) -> UseWindowSizeReturn {
         let timeout_handle: std::cell::Cell<Option<i32>> = std::cell::Cell::new(None);
         let debounced_update = move || {
             if let Some(h) = timeout_handle.get() {
-                web_sys::window()
-                    .unwrap()
-                    .clear_timeout_with_handle(h);
+                web_sys::window().unwrap().clear_timeout_with_handle(h);
             }
+            #[allow(clippy::redundant_closure)]
             let cb = Closure::once_into_js(move || update());
             let h = web_sys::window()
                 .unwrap()

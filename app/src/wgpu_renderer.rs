@@ -110,14 +110,7 @@ fn create_palette_texture(device: &wgpu::Device) -> wgpu::Texture {
 fn upload_palette(queue: &wgpu::Queue, texture: &wgpu::Texture, colors: &[[u8; 3]]) {
     let palette_data: Vec<[f32; 4]> = colors
         .iter()
-        .map(|[r, g, b]| {
-            [
-                *r as f32 / 255.0,
-                *g as f32 / 255.0,
-                *b as f32 / 255.0,
-                1.0,
-            ]
-        })
+        .map(|[r, g, b]| [*r as f32 / 255.0, *g as f32 / 255.0, *b as f32 / 255.0, 1.0])
         .collect();
 
     queue.write_texture(
@@ -154,10 +147,10 @@ fn ensure_gpu_canvas_context_constructor() {
         return;
     };
 
-    let Ok(canvas) = document
-        .create_element("canvas")
-        .and_then(|el| el.dyn_into::<web_sys::HtmlCanvasElement>().map_err(Into::into))
-    else {
+    let Ok(canvas) = document.create_element("canvas").and_then(|el| {
+        el.dyn_into::<web_sys::HtmlCanvasElement>()
+            .map_err(Into::into)
+    }) else {
         return;
     };
 
@@ -165,7 +158,9 @@ fn ensure_gpu_canvas_context_constructor() {
         return;
     };
 
-    let Ok(constructor) = js_sys::Reflect::get(&context, &wasm_bindgen::JsValue::from_str("constructor")) else {
+    let Ok(constructor) =
+        js_sys::Reflect::get(&context, &wasm_bindgen::JsValue::from_str("constructor"))
+    else {
         return;
     };
 
@@ -583,9 +578,7 @@ where
 
     pub fn draw(&mut self) -> Result<(), ()> {
         // Check for cancel
-        let cancelled = self
-            .events
-            .with_untracked(|state| state.cancel);
+        let cancelled = self.events.with_untracked(|state| state.cancel);
         if cancelled {
             return Err(());
         }

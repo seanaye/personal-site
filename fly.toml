@@ -1,0 +1,31 @@
+# fly.toml app configuration file for personal-site
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+
+app = 'personal-site'
+primary_region = 'yyz'
+
+[build]
+
+[deploy]
+  strategy = 'canary'
+
+[env]
+  LEPTOS_OUTPUT_NAME = 'personal_site'
+  LEPTOS_SITE_ROOT = 'site'
+  LEPTOS_SITE_PKG_DIR = 'pkg'
+  LEPTOS_SITE_ADDR = '0.0.0.0:8080'
+  LEPTOS_RELOAD_PORT = '3001'
+  RUST_LOG = 'info'
+
+[http_service]
+  auto_start_machines = true
+  auto_stop_machines = 'suspend'
+  force_https = true
+  internal_port = 8080
+  min_machines_running = 0
+  processes = ['app']
+
+[[vm]]
+  cpu_kind = 'shared'
+  cpus = 1
+  memory = '1gb'

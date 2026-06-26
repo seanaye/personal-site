@@ -1,7 +1,6 @@
 use grid::Size;
 use leptos::prelude::*;
 use photogrid::{PhotoLayoutData, ResponsivePhotoGrid, SrcSet};
-use std::sync::Arc;
 use url::Url;
 
 #[island]
@@ -118,7 +117,7 @@ fn srcsets<'a>(s: impl Iterator<Item = &'a SrcSet>) -> String {
 
 fn original(s: &Url) -> Url {
     let mut out = s.clone();
-    let segments = s.path_segments().expect("This must have a base");
+    let mut segments = s.path_segments().expect("This must have a base");
 
     out.path_segments_mut()
         .expect("this must have a base")
@@ -126,7 +125,7 @@ fn original(s: &Url) -> Url {
         .push("original")
         .push(
             segments
-                .last()
+                .next_back()
                 .expect("There is a file here")
                 .replace(".avif", ".jpg")
                 .as_str(),

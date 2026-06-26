@@ -1,13 +1,20 @@
+#![allow(dead_code, unused_imports)]
+
 use app::*;
 use axum::Router;
 use bucket::{get_bucket, BucketAccess};
 use grid::{FromSize, RoundedAspectRatio, Size};
 use leptos::prelude::*;
 use leptos_axum::{generate_route_list, LeptosRoutes};
+use photo_search::PhotoAccess;
 use photogrid::{PhotoLayoutData, ResponsivePhotoGrid, SrcSet};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
-use std::{collections::HashMap, fs::File, io::{Read, Write}, sync::Arc};
-use photo_search::PhotoAccess;
+use std::{
+    collections::HashMap,
+    fs::File,
+    io::{Read, Write},
+    sync::Arc,
+};
 mod bucket;
 
 async fn photo_data() -> anyhow::Result<impl Iterator<Item = PhotoLayoutData>> {
@@ -15,7 +22,7 @@ async fn photo_data() -> anyhow::Result<impl Iterator<Item = PhotoLayoutData>> {
 
     let data = bucket.list_resized().await?;
 
-    Ok(data.into_iter().filter_map(|(_key, mut value)| {
+    Ok(data.into_values().filter_map(|mut value| {
         let first = value.first_mut()?;
         let metadata = std::mem::take(&mut first.metadata);
         Some(PhotoLayoutData {
@@ -40,7 +47,10 @@ where
     f.write_all(s.as_bytes()).unwrap();
 }
 
-fn cached<T>() -> T where T: DeserializeOwned {
+fn cached<T>() -> T
+where
+    T: DeserializeOwned,
+{
     let s = include_str!("../../data.json");
     serde_json::from_str(s).unwrap()
 }

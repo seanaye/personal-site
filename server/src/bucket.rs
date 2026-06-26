@@ -41,7 +41,7 @@ pub struct BucketAccess<'a> {
 pub struct ResizedImage {
     pub url: Url,
     pub dimension: Dimension,
-    pub metadata: HashMap<String, String>
+    pub metadata: HashMap<String, String>,
 }
 
 impl<'a> BucketAccess<'a> {
@@ -50,9 +50,14 @@ impl<'a> BucketAccess<'a> {
     }
 
     pub async fn list_resized(&self) -> anyhow::Result<HashMap<String, Vec<ResizedImage>>> {
-        let res = self.bucket.list_recursive("resized/".into(), Some("/".into())).await?;
-        let mut objects: Vec<_> = res.flatten()
-            .filter_map(|c| Some((c.key.split("/").last()?.to_string(), c))).collect();
+        let res = self
+            .bucket
+            .list_recursive("resized/".into(), Some("/".into()))
+            .await?;
+        let mut objects: Vec<_> = res
+            .flatten()
+            .filter_map(|c| Some((c.key.split("/").last()?.to_string(), c)))
+            .collect();
         objects.sort_unstable_by_key(|(key, _)| key.clone());
         let mut out = HashMap::new();
         for (key, val) in &objects.into_iter().chunk_by(|(key, _)| key.clone()) {
@@ -67,7 +72,11 @@ impl<'a> BucketAccess<'a> {
                     let (mut head, _status) = self.bucket.head_object(c.key).await.ok()?;
                     let mut metadata = std::mem::take(&mut head.metadata)?;
                     let dimension: Dimension = metadata.remove("dimensions")?.parse().ok()?;
-                    Some(ResizedImage { url, dimension, metadata })
+                    Some(ResizedImage {
+                        url,
+                        dimension,
+                        metadata,
+                    })
                 })
                 .collect()
                 .await;

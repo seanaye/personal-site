@@ -4,12 +4,12 @@ use num_traits::FromPrimitive;
 use std::time::Duration;
 use wasm_bindgen::prelude::*;
 
+#[cfg(all(feature = "hydrate", target_arch = "wasm32"))]
+use crate::wgpu_renderer::WgpuLiquidRenderer;
 use crate::{
     canvas_grid::{Event, EventState, PolineManager, PolineManagerImpl},
     hooks::{use_elem_size, UseWindowSizeReturn},
 };
-#[cfg(all(feature = "hydrate", target_arch = "wasm32"))]
-use crate::wgpu_renderer::WgpuLiquidRenderer;
 
 const HUE_STORAGE_KEY: &str = "liquid-hue";
 const POINTER_MOVE_DROP_STRIDE: u8 = 4;
@@ -29,7 +29,8 @@ fn stored_hue_value() -> Option<f64> {
 
 #[cfg(all(feature = "hydrate", target_arch = "wasm32"))]
 fn store_hue_value(value: f64) {
-    if let Some(storage) = web_sys::window().and_then(|window| window.local_storage().ok().flatten())
+    if let Some(storage) =
+        web_sys::window().and_then(|window| window.local_storage().ok().flatten())
     {
         _ = storage.set_item(HUE_STORAGE_KEY, &value.to_string());
     }
@@ -147,16 +148,17 @@ pub fn Canvas(children: Children) -> impl IntoView {
         if let Some(document) = web_sys::window().and_then(|window| window.document()) {
             set_document_hidden.set(document.hidden());
 
-            let listener = gloo::events::EventListener::new(&document, "visibilitychange", move |_| {
-                let hidden = web_sys::window()
-                    .and_then(|window| window.document())
-                    .is_some_and(|document| document.hidden());
+            let listener =
+                gloo::events::EventListener::new(&document, "visibilitychange", move |_| {
+                    let hidden = web_sys::window()
+                        .and_then(|window| window.document())
+                        .is_some_and(|document| document.hidden());
 
-                set_document_hidden.set(hidden);
-                if hidden {
-                    set_events.update(|ev| ev.clear_events());
-                }
-            });
+                    set_document_hidden.set(hidden);
+                    if hidden {
+                        set_events.update(|ev| ev.clear_events());
+                    }
+                });
             listener.forget();
         }
     }
@@ -207,8 +209,7 @@ pub fn Canvas(children: Children) -> impl IntoView {
                 set_events.update(move |c| {
                     c.add_event(Event::AddDrop {
                         coord: Coord {
-                            x: usize::from_f64(f_x * f64::from_usize(dots_width).unwrap())
-                                .unwrap(),
+                            x: usize::from_f64(f_x * f64::from_usize(dots_width).unwrap()).unwrap(),
                             y: usize::from_f64(f_y * f64::from_usize(dots_height).unwrap())
                                 .unwrap(),
                         },
@@ -229,47 +230,43 @@ pub fn Canvas(children: Children) -> impl IntoView {
         let dots_width = usize::from_f64(w).unwrap_or(0);
         let dots_height = usize::from_f64(h).unwrap_or(0);
 
-        if dots_width == 0 || dots_height == 0 {
-            return;
-        }
+        if dots_width != 0 && dots_height != 0 {
+            #[cfg(all(feature = "hydrate", target_arch = "wasm32"))]
+            {
+                let canvas_el = canvas_ref.get_untracked().expect("Canvas not loaded");
+                let canvas_html: web_sys::HtmlCanvasElement = canvas_el.into();
 
-        #[cfg(all(feature = "hydrate", target_arch = "wasm32"))]
-        {
-            let canvas_el = canvas_ref.get_untracked().expect("Canvas not loaded");
-            let canvas_html: web_sys::HtmlCanvasElement = canvas_el.into();
+                wasm_bindgen_futures::spawn_local(async move {
+                    let renderer = WgpuLiquidRenderer::new(
+                        canvas_html,
+                        dots_width as u32,
+                        dots_height as u32,
+                        events,
+                        clear_events,
+                        poline,
+                    )
+                    .await;
 
-            wasm_bindgen_futures::spawn_local(async move {
-                let renderer = WgpuLiquidRenderer::new(
-                    canvas_html,
-                    dots_width as u32,
-                    dots_height as u32,
-                    events,
-                    clear_events,
-                    poline,
-                )
-                .await;
+                    let Some(renderer) = renderer else {
+                        log::error!("Failed to initialize WebGPU renderer");
+                        return;
+                    };
 
-                let Some(renderer) = renderer else {
-                    log::error!("Failed to initialize WebGPU renderer");
-                    return;
-                };
-
-                fn animation_loop<T: Fn() + 'static>(
-                    mut renderer: WgpuLiquidRenderer<T>,
-                    on_cancel: impl Fn() + 'static,
-                ) {
-                    request_animation_frame(move || {
-                        match renderer.draw() {
+                    fn animation_loop<T: Fn() + 'static>(
+                        mut renderer: WgpuLiquidRenderer<T>,
+                        on_cancel: impl Fn() + 'static,
+                    ) {
+                        request_animation_frame(move || match renderer.draw() {
                             Ok(()) => animation_loop(renderer, on_cancel),
                             Err(()) => {
                                 on_cancel();
                             }
-                        }
-                    });
-                }
+                        });
+                    }
 
-                animation_loop(renderer, on_cancel);
-            });
+                    animation_loop(renderer, on_cancel);
+                });
+            }
         }
     });
 

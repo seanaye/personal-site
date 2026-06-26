@@ -20,7 +20,7 @@ impl FromStr for Dimension {
                 height: height as usize,
             }),
             Ok((x, _)) => Err(anyhow::anyhow!("leftover content: {}", x)),
-            Err(x) => Err(anyhow::anyhow!("failed to parse: {}", x.to_string())),
+            Err(x) => Err(anyhow::anyhow!("failed to parse: {}", x)),
         }
     }
 }
@@ -37,7 +37,7 @@ impl FromStr for AspectRatio {
                 height: height as usize,
             }),
             Ok((x, _)) => Err(anyhow::anyhow!("leftover content: {}", x)),
-            Err(x) => Err(anyhow::anyhow!("failed to parse: {}", x.to_string())),
+            Err(x) => Err(anyhow::anyhow!("failed to parse: {}", x)),
         }
     }
 }
