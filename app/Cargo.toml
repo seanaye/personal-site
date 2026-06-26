@@ -2,6 +2,7 @@
 name = "app"
 version = "0.1.0"
 edition = "2021"
+build = "build.rs"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -36,7 +37,6 @@ rand = "0.8.5"
 photo-search = { version = "0.1.0", path = "../photo-search" }
 url = "2.5.2"
 pulldown-cmark = "0.12"
-include_dir = "0.7"
 wgpu = { version = "24", features = ["webgpu", "webgl"], optional = true }
 bytemuck = { version = "1", features = ["derive"], optional = true }
 wasm-bindgen-futures = { version = "0.4", optional = true }
