@@ -29,30 +29,13 @@ pub fn use_elem_size(el: NodeRef<Div>) -> UseWindowSizeReturn {
 
     Effect::new(move |_| update());
 
-    // Browser-only: attach resize listener
+    // Browser-only: keep the canvas backing size in sync with its CSS size.
     #[cfg(feature = "hydrate")]
     {
         use wasm_bindgen::prelude::*;
 
-        let timeout_handle: std::cell::Cell<Option<i32>> = std::cell::Cell::new(None);
-        let debounced_update = move || {
-            if let Some(h) = timeout_handle.get() {
-                web_sys::window().unwrap().clear_timeout_with_handle(h);
-            }
-            #[allow(clippy::redundant_closure)]
-            let cb = Closure::once_into_js(move || update());
-            let h = web_sys::window()
-                .unwrap()
-                .set_timeout_with_callback_and_timeout_and_arguments_0(
-                    cb.as_ref().unchecked_ref(),
-                    500,
-                )
-                .unwrap();
-            timeout_handle.set(Some(h));
-        };
-
         let cb = Closure::<dyn Fn(web_sys::Event)>::new(move |_: web_sys::Event| {
-            debounced_update();
+            update();
         });
         web_sys::window()
             .unwrap()

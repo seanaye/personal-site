@@ -247,25 +247,38 @@ pub fn Canvas(children: Children) -> impl IntoView {
         }
     }
 
-    let (cancel_count, set_cancel_count) = signal(0);
+    let (restart_count, set_restart_count) = signal(0u64);
 
     let SliderHue { poline, .. } = expect_slider_hue();
 
-    Effect::new(move |val: Option<bool>| {
-        width.with(|_| {});
-        height.with(|_| {});
-        if val.is_some() {
-            set_events.update(|e| e.cancel())
+    Effect::new(move |previous_size: Option<(f64, f64)>| {
+        let size = (width.get(), height.get());
+        let has_size = size.0 > 0.0 && size.1 > 0.0;
+
+        if has_size {
+            match previous_size {
+                None => set_restart_count.update(|c| *c = c.wrapping_add(1)),
+                Some((previous_width, previous_height))
+                    if previous_width == 0.0 || previous_height == 0.0 =>
+                {
+                    set_restart_count.update(|c| *c = c.wrapping_add(1));
+                }
+                Some(previous_size) if previous_size != size => {
+                    set_events.update(|e| e.cancel());
+                }
+                _ => {}
+            }
         }
-        true
+
+        size
     });
 
     let on_cancel = move || {
         log::info!("aborted compute events");
-        set_cancel_count.update(|c| {
-            *c += 1;
-        });
         set_events.update(|e| e.reset_cancel_state());
+        set_restart_count.update(|c| {
+            *c = c.wrapping_add(1);
+        });
     };
 
     let (random_drop_tick, set_random_drop_tick) = signal(0u64);
@@ -306,11 +319,14 @@ pub fn Canvas(children: Children) -> impl IntoView {
     });
 
     Effect::new(move |_| {
-        cancel_count.read();
+        if restart_count.get() == 0 {
+            return;
+        }
+
         set_events.set(EventState::default());
 
-        let w = width.get();
-        let h = height.get();
+        let w = width.get_untracked();
+        let h = height.get_untracked();
         let dots_width = usize::from_f64(w).unwrap_or(0);
         let dots_height = usize::from_f64(h).unwrap_or(0);
 
@@ -391,7 +407,7 @@ pub fn Canvas(children: Children) -> impl IntoView {
                 node_ref=canvas_ref
                 width=move || width.get()
                 height=move || height.get()
-                class="absolute inset-0"
+                class="absolute inset-0 h-full w-full"
             />
             {children()}
         </div>
