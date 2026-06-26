@@ -3,35 +3,11 @@ use std::{
     path::{Path, PathBuf},
 };
 
-fn title_from_slug(slug: &str) -> String {
-    slug.split(['-', '_'])
-        .filter(|part| !part.is_empty())
-        .map(|part| {
-            let mut chars = part.chars();
-            match chars.next() {
-                Some(first) => first.to_uppercase().chain(chars).collect::<String>(),
-                None => String::new(),
-            }
-        })
-        .collect::<Vec<_>>()
-        .join(" ")
-}
-
-fn markdown_title(markdown: &str) -> Option<String> {
-    markdown.lines().find_map(|line| {
-        line.strip_prefix("# ")
-            .map(str::trim)
-            .filter(|title| !title.is_empty())
-            .map(ToOwned::to_owned)
-    })
-}
-
-fn markdown_excerpt(markdown: &str) -> Option<String> {
-    markdown
-        .lines()
-        .map(str::trim)
-        .find(|line| !line.is_empty() && !line.starts_with('#'))
-        .map(ToOwned::to_owned)
+#[derive(Debug, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct Frontmatter {
+    title: String,
+    excerpt: Option<String>,
 }
 
 fn rust_string(value: impl AsRef<str>) -> String {
@@ -40,9 +16,39 @@ fn rust_string(value: impl AsRef<str>) -> String {
 
 struct Post {
     slug: String,
-    title: String,
-    excerpt: Option<String>,
-    path: PathBuf,
+    frontmatter: Frontmatter,
+    content: String,
+}
+
+fn split_frontmatter<'a>(path: &Path, content: &'a str) -> (&'a str, &'a str) {
+    let mut lines = content.split_inclusive('\n');
+    let Some(opening_line) = lines.next() else {
+        panic!("{} is empty", path.display());
+    };
+
+    if opening_line.trim_end_matches(['\r', '\n']) != "+++" {
+        panic!(
+            "{} must start with TOML frontmatter delimited by +++",
+            path.display()
+        );
+    }
+
+    let frontmatter_start = opening_line.len();
+    let mut offset = frontmatter_start;
+
+    for line in lines {
+        let line_start = offset;
+        offset += line.len();
+
+        if line.trim_end_matches(['\r', '\n']) == "+++" {
+            return (&content[frontmatter_start..line_start], &content[offset..]);
+        }
+    }
+
+    panic!(
+        "{} is missing closing +++ TOML frontmatter delimiter",
+        path.display()
+    );
 }
 
 fn main() {
@@ -57,20 +63,26 @@ fn main() {
         .filter_map(Result::ok)
         .map(|entry| entry.path())
         .filter(|path| path.extension().is_some_and(|ext| ext == "md"))
-        .filter_map(|path| {
+        .map(|path| {
             println!("cargo:rerun-if-changed={}", path.display());
 
-            let content = fs::read_to_string(&path).ok()?;
-            let slug = path.file_stem()?.to_str()?.to_owned();
-            let title = markdown_title(&content).unwrap_or_else(|| title_from_slug(&slug));
-            let excerpt = markdown_excerpt(&content);
+            let content = fs::read_to_string(&path)
+                .unwrap_or_else(|err| panic!("failed to read {}: {err}", path.display()));
+            let (frontmatter, content) = split_frontmatter(&path, &content);
+            let frontmatter = toml::from_str::<Frontmatter>(frontmatter).unwrap_or_else(|err| {
+                panic!("invalid TOML frontmatter in {}: {err}", path.display())
+            });
+            let slug = path
+                .file_stem()
+                .and_then(|stem| stem.to_str())
+                .unwrap_or_else(|| panic!("invalid blog post filename {}", path.display()))
+                .to_owned();
 
-            Some(Post {
+            Post {
                 slug,
-                title,
-                excerpt,
-                path,
-            })
+                frontmatter,
+                content: content.to_owned(),
+            }
         })
         .collect::<Vec<_>>();
 
@@ -78,11 +90,13 @@ fn main() {
 
     let mut output = String::from("static BLOG_POSTS: &[BlogPost] = &[\n");
     for post in posts {
-        let path = post.path.canonicalize().unwrap_or(post.path);
         output.push_str("    BlogPost {\n");
         output.push_str(&format!("        slug: {},\n", rust_string(post.slug)));
-        output.push_str(&format!("        title: {},\n", rust_string(post.title)));
-        match post.excerpt {
+        output.push_str(&format!(
+            "        title: {},\n",
+            rust_string(post.frontmatter.title)
+        ));
+        match post.frontmatter.excerpt {
             Some(excerpt) => output.push_str(&format!(
                 "        excerpt: Some({}),\n",
                 rust_string(excerpt)
@@ -90,8 +104,8 @@ fn main() {
             None => output.push_str("        excerpt: None,\n"),
         }
         output.push_str(&format!(
-            "        content: include_str!({}),\n",
-            rust_string(path.to_string_lossy())
+            "        content: {},\n",
+            rust_string(post.content)
         ));
         output.push_str("    },\n");
     }
