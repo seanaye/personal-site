@@ -248,8 +248,18 @@ pub fn SliderProvider(children: Children) -> impl IntoView {
     children()
 }
 
-#[island]
+#[component]
 pub fn Canvas(children: Children) -> impl IntoView {
+    view! {
+        <div class="relative min-h-lvh overflow-hidden">
+            <CanvasBackground />
+            {children()}
+        </div>
+    }
+}
+
+#[island]
+fn CanvasBackground() -> impl IntoView {
     let outer_size: NodeRef<html::Div> = NodeRef::new();
     let canvas_ref: NodeRef<html::Canvas> = NodeRef::new();
 
@@ -408,7 +418,7 @@ pub fn Canvas(children: Children) -> impl IntoView {
     view! {
         <div
             node_ref=outer_size
-            class="relative h-lvh w-lvw"
+            class="absolute inset-0 h-lvh w-lvw"
             on:pointermove=move |ev| {
                 let should_add_drop = pointer_move_count.with_untracked(|count| {
                     count.wrapping_add(1) >= POINTER_MOVE_DROP_STRIDE
@@ -444,7 +454,6 @@ pub fn Canvas(children: Children) -> impl IntoView {
                 height=move || height.get()
                 class="absolute inset-0 h-full w-full"
             />
-            {children()}
         </div>
     }
 }
