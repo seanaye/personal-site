@@ -173,29 +173,36 @@ fn rgb_css([r, g, b]: [u8; 3]) -> String {
     format!("rgb({r}, {g}, {b})")
 }
 
+fn readable_palette_style(poline: Memo<PolineManagerImpl>) -> String {
+    let text_color = poline.with(|p| readable_palette_color(p.colors()));
+    let shadow_color = if relative_luminance(text_color) > 0.5 {
+        "rgba(0, 0, 0, 0.55)"
+    } else {
+        "rgba(255, 255, 255, 0.55)"
+    };
+
+    let text_color = rgb_css(text_color);
+    format!(
+        "color: {text_color}; accent-color: {text_color}; text-shadow: 0 1px 2px {shadow_color};"
+    )
+}
+
+#[island]
+pub fn PolineText(children: Children) -> impl IntoView {
+    let SliderHue { poline, .. } = expect_slider_hue();
+
+    view! { <div style=move || readable_palette_style(poline)>{children()}</div> }
+}
+
 #[island]
 pub fn NavBar() -> impl IntoView {
     let SliderHue { poline, .. } = expect_slider_hue();
-
-    let style = move || {
-        let text_color = poline.with(|p| readable_palette_color(p.colors()));
-        let shadow_color = if relative_luminance(text_color) > 0.5 {
-            "rgba(0, 0, 0, 0.55)"
-        } else {
-            "rgba(255, 255, 255, 0.55)"
-        };
-
-        let text_color = rgb_css(text_color);
-        format!(
-            "color: {text_color}; accent-color: {text_color}; text-shadow: 0 1px 2px {shadow_color};"
-        )
-    };
 
     view! {
         <nav
             aria-label="Primary"
             class="absolute inset-x-0 top-0 z-50 flex flex-col items-start gap-2 py-4 pr-4 pl-6 font-mono text-sm lowercase tracking-[0.2em] sm:flex-row sm:items-center sm:justify-between sm:gap-8 sm:py-6 sm:pr-6 sm:pl-24"
-            style=style
+            style=move || readable_palette_style(poline)
         >
             <div class="flex gap-5 sm:gap-8">
                 <a class="transition-opacity hover:opacity-75" href="/">"home"</a>

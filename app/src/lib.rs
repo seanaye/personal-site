@@ -239,26 +239,28 @@ fn BlogPage() -> impl IntoView {
     view! {
         <Canvas>
             <LayoutContent>
-                <div class="prose font-mono">
-                    <h1>"blog"</h1>
-                    {if BLOG_POSTS.is_empty() {
-                        view! { <p>"No posts yet."</p> }.into_any()
-                    } else {
-                        BLOG_POSTS
-                            .iter()
-                            .map(|post| {
-                                let href = format!("/blog/{}", post.slug);
-                                view! {
-                                    <article>
-                                        <h2><a href=href>{post.title}</a></h2>
-                                        {post.excerpt.map(|excerpt| view! { <p>{excerpt}</p> })}
-                                    </article>
-                                }
-                            })
-                            .collect_view()
-                            .into_any()
-                    }}
-                </div>
+                <PolineText>
+                    <div class="prose font-mono prose-a:text-inherit prose-headings:text-inherit prose-p:text-inherit">
+                        <h1>"blog"</h1>
+                        {if BLOG_POSTS.is_empty() {
+                            view! { <p>"No posts yet."</p> }.into_any()
+                        } else {
+                            BLOG_POSTS
+                                .iter()
+                                .map(|post| {
+                                    let href = format!("/blog/{}", post.slug);
+                                    view! {
+                                        <article>
+                                            <h2><a href=href>{post.title}</a></h2>
+                                            {post.excerpt.map(|excerpt| view! { <p>{excerpt}</p> })}
+                                        </article>
+                                    }
+                                })
+                                .collect_view()
+                                .into_any()
+                        }}
+                    </div>
+                </PolineText>
             </LayoutContent>
         </Canvas>
     }
