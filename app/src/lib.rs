@@ -34,7 +34,7 @@ pub fn shell(options: LeptosOptions) -> impl IntoView {
                 <meta charset="utf-8" />
                 <meta name="viewport" content="width=device-width, initial-scale=1" />
                 <AutoReload options=options.clone() />
-                <HydrationScripts options islands=true />
+                <HydrationScripts options islands=true islands_router=true />
                 <MetaTags />
             </head>
             <body>
@@ -57,28 +57,26 @@ pub fn App() -> impl IntoView {
 
         // content for this welcome page
         <Router>
-            <SliderProvider>
-                <main class="relative">
-                    <Routes fallback=|| {
-                        let mut outside_errors = Errors::default();
-                        outside_errors.insert_with_default_key(AppError::NotFound);
-                        view! {
-                            <LayoutContent>
-                                <ErrorTemplate outside_errors />
-                            </LayoutContent>
-                        }
-                        .into_view()
-                    }>
-                        <Route path=StaticSegment("") view=HomePage />
-                        <Route path=StaticSegment("/blog") view=BlogPage />
-                        <Route path=(StaticSegment("/blog"), ParamSegment("slug")) view=BlogPostPage />
-                        <Route path=StaticSegment("/photo") view=PhotoPage />
-                        <Route path=StaticSegment("/search") view=SearchPage />
-                    </Routes>
-                    <NavBar />
-                    <DebugPoline />
-                </main>
-            </SliderProvider>
+            <main class="relative">
+                <Routes fallback=|| {
+                    let mut outside_errors = Errors::default();
+                    outside_errors.insert_with_default_key(AppError::NotFound);
+                    view! {
+                        <LayoutContent>
+                            <ErrorTemplate outside_errors />
+                        </LayoutContent>
+                    }
+                    .into_view()
+                }>
+                    <Route path=StaticSegment("") view=HomePage />
+                    <Route path=StaticSegment("/blog") view=BlogPage />
+                    <Route path=(StaticSegment("/blog"), ParamSegment("slug")) view=BlogPostPage />
+                    <Route path=StaticSegment("/photo") view=PhotoPage />
+                    <Route path=StaticSegment("/search") view=SearchPage />
+                </Routes>
+                <NavBar />
+                <DebugPoline />
+            </main>
         </Router>
     }
 }
@@ -363,7 +361,7 @@ fn FilteredPhotoGrid(f: SearchFilter, random: bool) -> impl IntoView {
 
 #[island]
 fn Gradient(children: Children) -> impl IntoView {
-    let SliderHue { poline, .. } = expect_slider_hue();
+    let SliderHue { poline, .. } = use_slider_hue();
 
     let color = Signal::derive(move || {
         let p = poline.read();

@@ -13,6 +13,7 @@ use crate::{
 };
 
 const HUE_STORAGE_KEY: &str = "liquid-hue-v2";
+const HUE_CHANGE_EVENT: &str = "liquid-hue-change";
 const POINTER_MOVE_DROP_STRIDE: u8 = 4;
 const DEFAULT_HUE_OFFSET_DEGREES: f64 = 171.0;
 
@@ -31,19 +32,22 @@ fn stored_hue_value() -> Option<f64> {
 
 #[cfg(all(feature = "hydrate", target_arch = "wasm32"))]
 fn store_hue_value(value: f64) {
-    if let Some(storage) =
-        web_sys::window().and_then(|window| window.local_storage().ok().flatten())
-    {
-        _ = storage.set_item(HUE_STORAGE_KEY, &value.to_string());
+    if let Some(window) = web_sys::window() {
+        if let Ok(Some(storage)) = window.local_storage() {
+            _ = storage.set_item(HUE_STORAGE_KEY, &value.to_string());
+        }
+        if let Ok(event) = web_sys::Event::new(HUE_CHANGE_EVENT) {
+            _ = window.dispatch_event(&event);
+        }
     }
 }
 
 #[cfg(not(all(feature = "hydrate", target_arch = "wasm32")))]
 fn store_hue_value(_value: f64) {}
 
-#[component]
+#[island]
 pub fn Slider() -> impl IntoView {
-    let slider_update: SliderHue = expect_context();
+    let slider_update = use_slider_hue();
     let input_ref: NodeRef<html::Input> = NodeRef::new();
 
     #[cfg(all(feature = "hydrate", target_arch = "wasm32"))]
@@ -105,6 +109,18 @@ pub fn use_provide_slider_hue() -> SliderHue {
         }
     });
 
+    #[cfg(all(feature = "hydrate", target_arch = "wasm32"))]
+    {
+        if let Some(window) = web_sys::window() {
+            let listener = gloo::events::EventListener::new(&window, HUE_CHANGE_EVENT, move |_| {
+                if let Some(value) = stored_hue_value() {
+                    set_hue_value.set(value);
+                }
+            });
+            listener.forget();
+        }
+    }
+
     let colours = Memo::new_owning(move |last| {
         let value = hue_value.get() + DEFAULT_HUE_OFFSET_DEGREES;
         let Some(mut last) = last else {
@@ -122,6 +138,27 @@ pub fn use_provide_slider_hue() -> SliderHue {
         set_hue_value,
         poline: colours,
     };
+
+    #[cfg(all(feature = "hydrate", target_arch = "wasm32"))]
+    Effect::new(move |_| {
+        let text_color = colours.with(|p| readable_palette_color(p.colors()));
+        let shadow_color = if relative_luminance(text_color) > 0.5 {
+            "rgba(0, 0, 0, 0.55)"
+        } else {
+            "rgba(255, 255, 255, 0.55)"
+        };
+
+        if let Some(root) = web_sys::window()
+            .and_then(|window| window.document())
+            .and_then(|document| document.document_element())
+            .and_then(|root| root.dyn_into::<web_sys::HtmlElement>().ok())
+        {
+            let style = root.style();
+            _ = style.set_property("--poline-text-color", &rgb_css(text_color));
+            _ = style.set_property("--poline-text-shadow", shadow_color);
+        }
+    });
+
     provide_context(slider_hue);
 
     slider_hue
@@ -129,6 +166,10 @@ pub fn use_provide_slider_hue() -> SliderHue {
 
 pub fn expect_slider_hue() -> SliderHue {
     expect_context()
+}
+
+pub fn use_slider_hue() -> SliderHue {
+    use_context().unwrap_or_else(use_provide_slider_hue)
 }
 
 fn srgb_channel_to_linear(channel: u8) -> f64 {
@@ -174,36 +215,22 @@ fn rgb_css([r, g, b]: [u8; 3]) -> String {
     format!("rgb({r}, {g}, {b})")
 }
 
-fn readable_palette_style(poline: Memo<PolineManagerImpl>) -> String {
-    let text_color = poline.with(|p| readable_palette_color(p.colors()));
-    let shadow_color = if relative_luminance(text_color) > 0.5 {
-        "rgba(0, 0, 0, 0.55)"
-    } else {
-        "rgba(255, 255, 255, 0.55)"
-    };
-
-    let text_color = rgb_css(text_color);
-    format!(
-        "color: {text_color}; accent-color: {text_color}; text-shadow: 0 1px 2px {shadow_color};"
-    )
+fn poline_text_style() -> &'static str {
+    "color: var(--poline-text-color, white); accent-color: var(--poline-text-color, white); text-shadow: 0 1px 2px var(--poline-text-shadow, rgba(0, 0, 0, 0.55));"
 }
 
 #[component]
 pub fn PolineText(children: Children) -> impl IntoView {
-    let SliderHue { poline, .. } = expect_slider_hue();
-
-    view! { <div style=move || readable_palette_style(poline)>{children()}</div> }
+    view! { <div style=poline_text_style()>{children()}</div> }
 }
 
 #[component]
 pub fn NavBar() -> impl IntoView {
-    let SliderHue { poline, .. } = expect_slider_hue();
-
     view! {
         <nav
             aria-label="Primary"
             class="absolute inset-x-0 top-0 z-50 flex flex-col items-start gap-2 py-4 pr-4 pl-6 font-mono text-sm lowercase tracking-[0.2em] sm:flex-row sm:items-center sm:justify-between sm:gap-8 sm:py-6 sm:pr-6 sm:pl-24"
-            style=move || readable_palette_style(poline)
+            style=poline_text_style()
         >
             <div class="flex gap-5 sm:gap-8">
                 <A href="/" {..} class="transition-opacity hover:opacity-75">"home"</A>
@@ -257,7 +284,7 @@ pub fn Canvas(children: Children) -> impl IntoView {
 
     let (restart_count, set_restart_count) = signal(0u64);
 
-    let SliderHue { poline, .. } = expect_slider_hue();
+    let SliderHue { poline, .. } = use_slider_hue();
 
     Effect::new(move |previous_size: Option<(f64, f64)>| {
         let size = (width.get(), height.get());
@@ -424,7 +451,7 @@ pub fn Canvas(children: Children) -> impl IntoView {
 
 #[island]
 pub fn DebugPoline() -> impl IntoView {
-    let SliderHue { poline, .. } = expect_slider_hue();
+    let SliderHue { poline, .. } = use_slider_hue();
     let (hydrated, set_hydrated) = signal(false);
 
     #[cfg(all(feature = "hydrate", target_arch = "wasm32"))]
