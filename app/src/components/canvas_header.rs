@@ -11,8 +11,9 @@ use crate::{
     hooks::{use_elem_size, UseWindowSizeReturn},
 };
 
-const HUE_STORAGE_KEY: &str = "liquid-hue";
+const HUE_STORAGE_KEY: &str = "liquid-hue-v2";
 const POINTER_MOVE_DROP_STRIDE: u8 = 4;
+const DEFAULT_HUE_OFFSET_DEGREES: f64 = 171.0;
 
 #[cfg(all(feature = "hydrate", target_arch = "wasm32"))]
 fn stored_hue_value() -> Option<f64> {
@@ -50,8 +51,14 @@ pub fn Slider() -> impl IntoView {
         // of Leptos state. Once the input is mounted, treat its DOM value as
         // authoritative and sync the shared palette state to it.
         if let Some(input) = input_ref.get_untracked() {
+            let state_value = slider_update.hue_value.get_untracked();
+            if stored_hue_value().is_none() {
+                input.set_value(&state_value.to_string());
+                return;
+            }
+
             if let Ok(value) = input.value().parse::<f64>() {
-                if value != slider_update.hue_value.get_untracked() {
+                if value != state_value {
                     store_hue_value(value);
                     slider_update.set_hue_value.set(value);
                 }
@@ -98,7 +105,7 @@ pub fn use_provide_slider_hue() -> SliderHue {
     });
 
     let colours = Memo::new_owning(move |last| {
-        let value = hue_value.get();
+        let value = hue_value.get() + DEFAULT_HUE_OFFSET_DEGREES;
         let Some(mut last) = last else {
             return (PolineManagerImpl::new(value), true);
         };
@@ -188,7 +195,7 @@ pub fn NavBar() -> impl IntoView {
     view! {
         <nav
             aria-label="Primary"
-            class="fixed left-0 top-0 z-50 flex gap-5 py-4 pr-4 pl-12 font-mono text-sm lowercase tracking-[0.2em] sm:gap-8 sm:py-6 sm:pr-6 sm:pl-12"
+            class="fixed left-0 top-0 z-50 flex gap-5 py-4 pl-24 font-mono text-sm lowercase tracking-[0.2em] sm:gap-8 sm:py-6"
             style=style
         >
             <a class="transition-opacity hover:opacity-75" href="/">"home"</a>
