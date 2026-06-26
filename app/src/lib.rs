@@ -86,7 +86,7 @@ pub fn App() -> impl IntoView {
 #[component]
 fn LayoutContent(children: Children) -> impl IntoView {
     view! {
-        <div class="min-h-lvh pt-28 pr-4 pl-6 sm:pt-24 sm:pr-6 sm:pl-24">
+        <div class="relative z-10 min-h-lvh pt-28 pr-4 pl-6 sm:pt-24 sm:pr-6 sm:pl-24">
             {children()}
         </div>
     }
@@ -237,28 +237,30 @@ fn blog_post(slug: &str) -> Option<&'static BlogPost> {
 #[component]
 fn BlogPage() -> impl IntoView {
     view! {
-        <LayoutContent>
-            <div class="prose font-mono">
-                <h1>"blog"</h1>
-                {if BLOG_POSTS.is_empty() {
-                    view! { <p>"No posts yet."</p> }.into_any()
-                } else {
-                    BLOG_POSTS
-                        .iter()
-                        .map(|post| {
-                            let href = format!("/blog/{}", post.slug);
-                            view! {
-                                <article>
-                                    <h2><a href=href>{post.title}</a></h2>
-                                    {post.excerpt.map(|excerpt| view! { <p>{excerpt}</p> })}
-                                </article>
-                            }
-                        })
-                        .collect_view()
-                        .into_any()
-                }}
-            </div>
-        </LayoutContent>
+        <Canvas>
+            <LayoutContent>
+                <div class="prose font-mono">
+                    <h1>"blog"</h1>
+                    {if BLOG_POSTS.is_empty() {
+                        view! { <p>"No posts yet."</p> }.into_any()
+                    } else {
+                        BLOG_POSTS
+                            .iter()
+                            .map(|post| {
+                                let href = format!("/blog/{}", post.slug);
+                                view! {
+                                    <article>
+                                        <h2><a href=href>{post.title}</a></h2>
+                                        {post.excerpt.map(|excerpt| view! { <p>{excerpt}</p> })}
+                                    </article>
+                                }
+                            })
+                            .collect_view()
+                            .into_any()
+                    }}
+                </div>
+            </LayoutContent>
+        </Canvas>
     }
 }
 
