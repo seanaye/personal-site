@@ -36,6 +36,18 @@
 
         craneLib = (crane.mkLib pkgs).overrideToolchain rustToolchain;
 
+        # Must match the wasm-bindgen crate version in Cargo.lock exactly.
+        wasmBindgenCli = pkgs.rustPlatform.buildRustPackage rec {
+          pname = "wasm-bindgen-cli";
+          version = "0.2.126";
+          src = pkgs.fetchCrate {
+            inherit pname version;
+            hash = "sha256-H6Is3fiZVxZCfOMWK5dWMSrtn50VGv0sfdnsT+cTtyk=";
+          };
+          cargoHash = "sha256-VucqkXbCi4qtQzY/HrXiDnbSURsagPsdNVMn1Tw3UiY=";
+          doCheck = false;
+        };
+
         # Cargo sources plus files cargo-leptos/the app read at build time.
         src =
           let
@@ -98,7 +110,7 @@
             pkgs.tailwindcss
             pkgs.dart-sass
             pkgs.binaryen
-            pkgs.wasm-bindgen-cli
+            wasmBindgenCli
           ];
           buildPhaseCargoCommand = ''
             cargo leptos build --release -vv
@@ -189,7 +201,7 @@
             tailwindcss
             dart-sass
             binaryen
-            wasm-bindgen-cli
+            wasmBindgenCli
             nodejs
             pkg-config
             openssl
