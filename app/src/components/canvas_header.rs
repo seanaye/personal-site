@@ -194,7 +194,7 @@ pub fn NavBar() -> impl IntoView {
     view! {
         <nav
             aria-label="Primary"
-            class="fixed inset-x-0 top-0 z-50 flex items-center justify-between gap-5 py-4 pr-4 pl-24 font-mono text-sm lowercase tracking-[0.2em] sm:gap-8 sm:py-6 sm:pr-6 sm:pl-24"
+            class="fixed inset-x-0 top-0 z-50 flex items-center justify-between gap-5 py-4 pr-4 pl-6 font-mono text-sm lowercase tracking-[0.2em] sm:gap-8 sm:py-6 sm:pr-6 sm:pl-24"
             style=style
         >
             <div class="flex gap-5 sm:gap-8">
