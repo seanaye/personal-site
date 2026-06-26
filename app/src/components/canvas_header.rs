@@ -295,7 +295,7 @@ fn canvas_background_style(poline: Memo<PolineManagerImpl>) -> String {
 fn StaticCanvasBackground() -> impl IntoView {
     let SliderHue { poline, .. } = use_slider_hue();
 
-    view! { <div class="absolute inset-0 h-lvh w-lvw" style=move || canvas_background_style(poline) /> }
+    view! { <div class="absolute inset-0 w-full" style=move || canvas_background_style(poline) /> }
 }
 
 #[component]
@@ -538,7 +538,7 @@ fn CanvasBackground() -> impl IntoView {
     });
 
     view! {
-        <div node_ref=outer_size class="absolute inset-0 h-lvh w-lvw">
+        <div node_ref=outer_size class="absolute inset-0 w-full">
             <canvas
                 node_ref=canvas_ref
                 width=move || width.get()
