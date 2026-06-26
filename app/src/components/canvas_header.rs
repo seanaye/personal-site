@@ -290,6 +290,68 @@ fn CanvasBackground() -> impl IntoView {
                 });
             listener.forget();
         }
+
+        if let Some(window) = web_sys::window() {
+            let pointer_move_listener =
+                gloo::events::EventListener::new(&window, "pointermove", move |ev| {
+                    let should_add_drop = pointer_move_count
+                        .with_untracked(|count| count.wrapping_add(1) >= POINTER_MOVE_DROP_STRIDE);
+                    if should_add_drop {
+                        set_pointer_move_count.set(0);
+                    } else {
+                        set_pointer_move_count.update(|count| *count = count.wrapping_add(1));
+                        return;
+                    }
+
+                    let Some(ev) = ev.dyn_ref::<web_sys::MouseEvent>() else {
+                        return;
+                    };
+                    let x = ev.client_x();
+                    let y = ev.client_y();
+                    if x < 0
+                        || y < 0
+                        || x as f64 >= width.get_untracked()
+                        || y as f64 >= height.get_untracked()
+                    {
+                        return;
+                    }
+
+                    set_events.update(move |v| {
+                        v.add_event(Event::AddDrop {
+                            coord: Coord {
+                                x: x as usize,
+                                y: y as usize,
+                            },
+                        })
+                    });
+                });
+            pointer_move_listener.forget();
+
+            let click_listener = gloo::events::EventListener::new(&window, "click", move |ev| {
+                let Some(ev) = ev.dyn_ref::<web_sys::MouseEvent>() else {
+                    return;
+                };
+                let x = ev.client_x();
+                let y = ev.client_y();
+                if x < 0
+                    || y < 0
+                    || x as f64 >= width.get_untracked()
+                    || y as f64 >= height.get_untracked()
+                {
+                    return;
+                }
+
+                set_events.update(move |v| {
+                    v.add_event(Event::AddDrop {
+                        coord: Coord {
+                            x: x as usize,
+                            y: y as usize,
+                        },
+                    })
+                });
+            });
+            click_listener.forget();
+        }
     }
 
     let (restart_count, set_restart_count) = signal(0u64);
@@ -416,38 +478,7 @@ fn CanvasBackground() -> impl IntoView {
     });
 
     view! {
-        <div
-            node_ref=outer_size
-            class="absolute inset-0 h-lvh w-lvw"
-            on:pointermove=move |ev| {
-                let should_add_drop = pointer_move_count.with_untracked(|count| {
-                    count.wrapping_add(1) >= POINTER_MOVE_DROP_STRIDE
-                });
-                if should_add_drop {
-                    set_pointer_move_count.set(0);
-                } else {
-                    set_pointer_move_count.update(|count| *count = count.wrapping_add(1));
-                    return;
-                }
-
-                let e = Event::AddDrop {
-                    coord: Coord {
-                        x: ev.page_x() as usize,
-                        y: ev.page_y() as usize,
-                    },
-                };
-                set_events.update(move |v| v.add_event(e));
-            }
-            on:click=move |ev| {
-                let e = Event::AddDrop {
-                    coord: Coord {
-                        x: ev.page_x() as usize,
-                        y: ev.page_y() as usize,
-                    },
-                };
-                set_events.update(move |v| v.add_event(e));
-            }
-        >
+        <div node_ref=outer_size class="absolute inset-0 h-lvh w-lvw">
             <canvas
                 node_ref=canvas_ref
                 width=move || width.get()
