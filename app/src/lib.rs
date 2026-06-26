@@ -186,9 +186,6 @@ fn HomePage() -> impl IntoView {
         <Canvas>
             <Bio />
         </Canvas>
-        <Gradient>
-            <div />
-        </Gradient>
     }
 }
 
