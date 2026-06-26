@@ -20,11 +20,11 @@ load: build
 # Push to Fly.io registry (requires FLY_API_TOKEN)
 push tag=sha: load
     flyctl auth docker
-    docker tag personal-site:latest registry.fly.io/personal-site:{{ tag }}
-    docker tag personal-site:latest registry.fly.io/personal-site:latest
-    docker push registry.fly.io/personal-site:{{ tag }}
-    docker push registry.fly.io/personal-site:latest
+    docker tag personal-site:latest registry.fly.io/personal-site-astvuq:{{ tag }}
+    docker tag personal-site:latest registry.fly.io/personal-site-astvuq:latest
+    docker push registry.fly.io/personal-site-astvuq:{{ tag }}
+    docker push registry.fly.io/personal-site-astvuq:latest
 
 # Deploy to Fly.io
 deploy tag=sha: (push tag)
-    flyctl deploy --image registry.fly.io/personal-site:{{ tag }}
+    flyctl deploy --image registry.fly.io/personal-site-astvuq:{{ tag }}
