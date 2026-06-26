@@ -56,17 +56,21 @@ pub fn App() -> impl IntoView {
 
         // content for this welcome page
         <Router>
-            <main>
-                <Routes fallback=|| {
-                    let mut outside_errors = Errors::default();
-                    outside_errors.insert_with_default_key(AppError::NotFound);
-                    view! { <ErrorTemplate outside_errors /> }.into_view()
-                }>
-                    <Route path=StaticSegment("") view=HomePage />
-                    <Route path=StaticSegment("/photo") view=PhotoPage />
-                    <Route path=StaticSegment("/search") view=SearchPage />
-                </Routes>
-            </main>
+            <SliderProvider>
+                <main class="relative">
+                    <Routes fallback=|| {
+                        let mut outside_errors = Errors::default();
+                        outside_errors.insert_with_default_key(AppError::NotFound);
+                        view! { <ErrorTemplate outside_errors /> }.into_view()
+                    }>
+                        <Route path=StaticSegment("") view=HomePage />
+                        <Route path=StaticSegment("/photo") view=PhotoPage />
+                        <Route path=StaticSegment("/search") view=SearchPage />
+                    </Routes>
+                    <NavBar />
+                    <DebugPoline />
+                </main>
+            </SliderProvider>
         </Router>
     }
 }
@@ -179,16 +183,12 @@ fn Bio() -> impl IntoView {
 #[component]
 fn HomePage() -> impl IntoView {
     view! {
-        <SliderProvider>
-            <Canvas>
-                <NavBar />
-                <DebugPoline />
-                <Bio />
-            </Canvas>
-            <Gradient>
-                <div />
-            </Gradient>
-        </SliderProvider>
+        <Canvas>
+            <Bio />
+        </Canvas>
+        <Gradient>
+            <div />
+        </Gradient>
     }
 }
 
