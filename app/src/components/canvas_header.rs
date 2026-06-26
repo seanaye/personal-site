@@ -153,7 +153,9 @@ pub fn use_provide_slider_hue() -> SliderHue {
             .and_then(|document| document.document_element())
             .and_then(|root| root.dyn_into::<web_sys::HtmlElement>().ok())
         {
+            let background_color = colours.with(|p| canvas_background_color(p.colors()));
             let style = root.style();
+            _ = style.set_property("--poline-background-color", &rgb_css(background_color));
             _ = style.set_property("--poline-text-color", &rgb_css(text_color));
             _ = style.set_property("--poline-text-shadow", shadow_color);
         }
@@ -195,10 +197,16 @@ fn contrast_ratio(a: [u8; 3], b: [u8; 3]) -> f64 {
     (lighter + 0.05) / (darker + 0.05)
 }
 
+fn canvas_background_color(colors: &[[u8; 3]]) -> [u8; 3] {
+    colors.get(colors.len() / 2).copied().unwrap_or([0, 0, 0])
+}
+
 fn readable_palette_color(colors: &[[u8; 3]]) -> [u8; 3] {
-    let Some(background) = colors.get(colors.len() / 2).copied() else {
+    if colors.is_empty() {
         return [255, 255, 255];
-    };
+    }
+
+    let background = canvas_background_color(colors);
 
     colors
         .iter()
@@ -246,6 +254,22 @@ pub fn NavBar() -> impl IntoView {
 pub fn SliderProvider(children: Children) -> impl IntoView {
     use_provide_slider_hue();
     children()
+}
+
+fn static_canvas_background_style() -> String {
+    let default_palette = PolineManagerImpl::new(DEFAULT_HUE_OFFSET_DEGREES);
+    let fallback = rgb_css(canvas_background_color(default_palette.colors()));
+    format!("background: var(--poline-background-color, {fallback});")
+}
+
+#[component]
+pub fn StaticCanvas(children: Children) -> impl IntoView {
+    view! {
+        <div class="relative min-h-lvh overflow-hidden">
+            <div class="absolute inset-0 h-lvh w-lvw" style=static_canvas_background_style() />
+            {children()}
+        </div>
+    }
 }
 
 #[component]

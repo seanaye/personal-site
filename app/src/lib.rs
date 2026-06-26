@@ -288,14 +288,18 @@ fn BlogPostPage() -> impl IntoView {
 
     view! {
         <article class="contents">
-            <LayoutContent>
-                <div class="prose font-mono">
-                    {match post {
-                        Some(post) => view! { <Markdown content=post.content /> }.into_any(),
-                        None => view! { <p>"Post not found."</p> }.into_any(),
-                    }}
-                </div>
-            </LayoutContent>
+            <StaticCanvas>
+                <LayoutContent>
+                    <PolineText>
+                        <div class="prose font-mono [--tw-prose-body:currentColor] [--tw-prose-headings:currentColor] [--tw-prose-links:currentColor] [--tw-prose-bold:currentColor] [--tw-prose-counters:currentColor] [--tw-prose-bullets:currentColor] [--tw-prose-hr:currentColor] [--tw-prose-quotes:currentColor] [--tw-prose-quote-borders:currentColor] [--tw-prose-captions:currentColor] [--tw-prose-code:currentColor] [--tw-prose-pre-code:currentColor] [--tw-prose-th-borders:currentColor] [--tw-prose-td-borders:currentColor] prose-a:transition-opacity hover:prose-a:opacity-75">
+                            {match post {
+                                Some(post) => view! { <Markdown content=post.content /> }.into_any(),
+                                None => view! { <p>"Post not found."</p> }.into_any(),
+                            }}
+                        </div>
+                    </PolineText>
+                </LayoutContent>
+            </StaticCanvas>
         </article>
     }
 }
