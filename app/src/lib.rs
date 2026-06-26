@@ -198,9 +198,11 @@ fn Bio() -> impl IntoView {
 #[component]
 fn HomePage() -> impl IntoView {
     view! {
-        <Canvas>
-            <Bio />
-        </Canvas>
+        <header class="contents">
+            <Canvas>
+                <Bio />
+            </Canvas>
+        </header>
     }
 }
 
@@ -235,32 +237,34 @@ fn blog_post(slug: &str) -> Option<&'static BlogPost> {
 #[component]
 fn BlogPage() -> impl IntoView {
     view! {
-        <Canvas>
-            <LayoutContent>
-                <PolineText>
-                    <div class="prose font-mono [--tw-prose-body:currentColor] [--tw-prose-headings:currentColor] [--tw-prose-links:currentColor] [--tw-prose-bold:currentColor] [--tw-prose-counters:currentColor] [--tw-prose-bullets:currentColor] [--tw-prose-hr:currentColor] [--tw-prose-quotes:currentColor] [--tw-prose-quote-borders:currentColor] [--tw-prose-captions:currentColor] [--tw-prose-code:currentColor] [--tw-prose-pre-code:currentColor] [--tw-prose-th-borders:currentColor] [--tw-prose-td-borders:currentColor] prose-a:transition-opacity hover:prose-a:opacity-75">
-                        <h1>"blog"</h1>
-                        {if BLOG_POSTS.is_empty() {
-                            view! { <p>"No posts yet."</p> }.into_any()
-                        } else {
-                            BLOG_POSTS
-                                .iter()
-                                .map(|post| {
-                                    let href = format!("/blog/{}", post.slug);
-                                    view! {
-                                        <article>
-                                            <h2><A href=href>{post.title}</A></h2>
-                                            {post.excerpt.map(|excerpt| view! { <p>{excerpt}</p> })}
-                                        </article>
-                                    }
-                                })
-                                .collect_view()
-                                .into_any()
-                        }}
-                    </div>
-                </PolineText>
-            </LayoutContent>
-        </Canvas>
+        <section class="contents">
+            <Canvas>
+                <LayoutContent>
+                    <PolineText>
+                        <div class="prose font-mono [--tw-prose-body:currentColor] [--tw-prose-headings:currentColor] [--tw-prose-links:currentColor] [--tw-prose-bold:currentColor] [--tw-prose-counters:currentColor] [--tw-prose-bullets:currentColor] [--tw-prose-hr:currentColor] [--tw-prose-quotes:currentColor] [--tw-prose-quote-borders:currentColor] [--tw-prose-captions:currentColor] [--tw-prose-code:currentColor] [--tw-prose-pre-code:currentColor] [--tw-prose-th-borders:currentColor] [--tw-prose-td-borders:currentColor] prose-a:transition-opacity hover:prose-a:opacity-75">
+                            <h1>"blog"</h1>
+                            {if BLOG_POSTS.is_empty() {
+                                view! { <p>"No posts yet."</p> }.into_any()
+                            } else {
+                                BLOG_POSTS
+                                    .iter()
+                                    .map(|post| {
+                                        let href = format!("/blog/{}", post.slug);
+                                        view! {
+                                            <article>
+                                                <h2><A href=href>{post.title}</A></h2>
+                                                {post.excerpt.map(|excerpt| view! { <p>{excerpt}</p> })}
+                                            </article>
+                                        }
+                                    })
+                                    .collect_view()
+                                    .into_any()
+                            }}
+                        </div>
+                    </PolineText>
+                </LayoutContent>
+            </Canvas>
+        </section>
     }
 }
 
@@ -283,14 +287,16 @@ fn BlogPostPage() -> impl IntoView {
     let post = params.get().ok().and_then(|params| blog_post(&params.slug));
 
     view! {
-        <LayoutContent>
-            <div class="prose font-mono">
-                {match post {
-                    Some(post) => view! { <Markdown content=post.content /> }.into_any(),
-                    None => view! { <p>"Post not found."</p> }.into_any(),
-                }}
-            </div>
-        </LayoutContent>
+        <article class="contents">
+            <LayoutContent>
+                <div class="prose font-mono">
+                    {match post {
+                        Some(post) => view! { <Markdown content=post.content /> }.into_any(),
+                        None => view! { <p>"Post not found."</p> }.into_any(),
+                    }}
+                </div>
+            </LayoutContent>
+        </article>
     }
 }
 
@@ -303,12 +309,14 @@ fn PhotoPage() -> impl IntoView {
     };
 
     view! {
-        <LayoutContent>
-            <div class="prose font-mono">
-                <Markdown content=include_str!("content/photo.md") />
-            </div>
-            <FilteredPhotoGrid f=photo_filter random=true />
-        </LayoutContent>
+        <div class="contents">
+            <LayoutContent>
+                <div class="prose font-mono">
+                    <Markdown content=include_str!("content/photo.md") />
+                </div>
+                <FilteredPhotoGrid f=photo_filter random=true />
+            </LayoutContent>
+        </div>
     }
 }
 
@@ -336,9 +344,11 @@ fn SearchPage() -> impl IntoView {
         Err(_) => SearchFilter::default(),
     };
     view! {
-        <LayoutContent>
-            <FilteredPhotoGrid f=f random=false />
-        </LayoutContent>
+        <aside class="contents">
+            <LayoutContent>
+                <FilteredPhotoGrid f=f random=false />
+            </LayoutContent>
+        </aside>
     }
 }
 
