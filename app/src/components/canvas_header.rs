@@ -423,7 +423,7 @@ pub fn DebugPoline() -> impl IntoView {
     request_animation_frame(move || set_hydrated.set(true));
 
     view! {
-        <div class="pointer-events-none absolute left-0 top-0 z-40 h-lvh flex flex-wrap flex-col">
+        <div class="pointer-events-none fixed left-0 top-0 z-40 h-lvh flex flex-wrap flex-col">
             {move || {
                 // Force one post-hydration rerender. The server renders this palette
                 // with hue 0, but the browser may restore/persist another hue before
