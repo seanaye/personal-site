@@ -63,6 +63,7 @@ pub fn App() -> impl IntoView {
                     view! { <ErrorTemplate outside_errors /> }.into_view()
                 }>
                     <Route path=StaticSegment("") view=HomePage />
+                    <Route path=StaticSegment("/photo") view=PhotoPage />
                     <Route path=StaticSegment("/search") view=SearchPage />
                 </Routes>
             </main>
@@ -177,11 +178,6 @@ fn Bio() -> impl IntoView {
 
 #[component]
 fn HomePage() -> impl IntoView {
-    let home_page_filter = SearchFilter {
-        before: Some(1727827200),
-        after: None,
-        rating: None,
-    };
     view! {
         <SliderProvider>
             <Canvas>
@@ -193,10 +189,18 @@ fn HomePage() -> impl IntoView {
                 <div />
             </Gradient>
         </SliderProvider>
-        <section id="photography">
-            <FilteredPhotoGrid f=home_page_filter random=true />
-        </section>
     }
+}
+
+#[component]
+fn PhotoPage() -> impl IntoView {
+    let photo_filter = SearchFilter {
+        before: Some(1727827200),
+        after: None,
+        rating: None,
+    };
+
+    view! { <FilteredPhotoGrid f=photo_filter random=true /> }
 }
 
 #[derive(Debug, PartialEq, Clone)]

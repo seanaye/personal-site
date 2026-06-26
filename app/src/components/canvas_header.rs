@@ -200,7 +200,7 @@ pub fn NavBar() -> impl IntoView {
             <div class="flex gap-5 sm:gap-8">
                 <a class="transition-opacity hover:opacity-75" href="/">"home"</a>
                 <a class="transition-opacity hover:opacity-75" href="/blog">"blog"</a>
-                <a class="transition-opacity hover:opacity-75" href="/#photography">"photography"</a>
+                <a class="transition-opacity hover:opacity-75" href="/photo">"photography"</a>
             </div>
             <Slider />
         </nav>
