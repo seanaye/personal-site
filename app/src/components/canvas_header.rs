@@ -13,13 +13,6 @@ use crate::{
 
 const HUE_STORAGE_KEY: &str = "liquid-hue";
 const POINTER_MOVE_DROP_STRIDE: u8 = 4;
-const PALETTE_COLOR_COUNT: f64 = 256.0;
-const TAILWIND_SM_BREAKPOINT_PX: f64 = 640.0;
-const TAILWIND_MD_BREAKPOINT_PX: f64 = 768.0;
-const PALETTE_SWATCH_SIZE_PX: f64 = 8.0;
-const PALETTE_SWATCH_SIZE_MD_PX: f64 = 16.0;
-const NAVBAR_EDGE_PADDING_PX: f64 = 16.0;
-const NAVBAR_EDGE_PADDING_SM_PX: f64 = 24.0;
 
 #[cfg(all(feature = "hydrate", target_arch = "wasm32"))]
 fn stored_hue_value() -> Option<f64> {
@@ -173,30 +166,6 @@ fn rgb_css([r, g, b]: [u8; 3]) -> String {
     format!("rgb({r}, {g}, {b})")
 }
 
-fn palette_bar_width_px(viewport_width: f64, viewport_height: f64) -> f64 {
-    if viewport_width <= 0.0 || viewport_height <= 0.0 {
-        return 0.0;
-    }
-
-    let swatch_size = if viewport_width >= TAILWIND_MD_BREAKPOINT_PX {
-        PALETTE_SWATCH_SIZE_MD_PX
-    } else {
-        PALETTE_SWATCH_SIZE_PX
-    };
-    let rows_per_column = (viewport_height / swatch_size).floor().max(1.0);
-    let columns = (PALETTE_COLOR_COUNT / rows_per_column).ceil();
-
-    columns * swatch_size
-}
-
-fn navbar_edge_padding_px(viewport_width: f64) -> f64 {
-    if viewport_width >= TAILWIND_SM_BREAKPOINT_PX {
-        NAVBAR_EDGE_PADDING_SM_PX
-    } else {
-        NAVBAR_EDGE_PADDING_PX
-    }
-}
-
 #[island]
 pub fn NavBar() -> impl IntoView {
     let SliderHue { poline, .. } = expect_slider_hue();
@@ -210,7 +179,7 @@ pub fn NavBar() -> impl IntoView {
         };
 
         format!(
-            "color: {}; text-shadow: 0 1px 2px {}; padding-left: calc(var(--palette-bar-width, 0px) + var(--navbar-edge-padding, 1rem));",
+            "color: {}; text-shadow: 0 1px 2px {};",
             rgb_css(text_color),
             shadow_color
         )
@@ -219,7 +188,7 @@ pub fn NavBar() -> impl IntoView {
     view! {
         <nav
             aria-label="Primary"
-            class="fixed left-0 top-0 z-50 flex gap-5 p-4 font-mono text-sm lowercase tracking-[0.2em] sm:gap-8 sm:p-6"
+            class="fixed left-0 top-0 z-50 flex gap-5 py-4 pr-4 pl-12 font-mono text-sm lowercase tracking-[0.2em] sm:gap-8 sm:py-6 sm:pr-6 sm:pl-12"
             style=style
         >
             <a class="transition-opacity hover:opacity-75" href="/">"home"</a>
@@ -380,14 +349,6 @@ pub fn Canvas(children: Children) -> impl IntoView {
         <div
             node_ref=outer_size
             class="relative h-lvh w-lvw"
-            style=move || {
-                let viewport_width = width.get();
-                format!(
-                    "--palette-bar-width: {}px; --navbar-edge-padding: {}px;",
-                    palette_bar_width_px(viewport_width, height.get()),
-                    navbar_edge_padding_px(viewport_width)
-                )
-            }
             on:pointermove=move |ev| {
                 let should_add_drop = pointer_move_count.with_untracked(|count| {
                     count.wrapping_add(1) >= POINTER_MOVE_DROP_STRIDE
