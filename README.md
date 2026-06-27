@@ -98,4 +98,4 @@ Finally, run the server binary.
 
 ## Licensing
 
-This template itself is released under the Unlicense. You should replace the LICENSE for your own application with an appropriate license if you plan to release it publicly.
+This project is licensed under the MIT License. See [LICENSE](LICENSE) for details.
