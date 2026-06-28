@@ -141,7 +141,22 @@ pub fn use_provide_slider_hue() -> SliderHue {
 
     #[cfg(all(feature = "hydrate", target_arch = "wasm32"))]
     Effect::new(move |_| {
-        let text_color = colours.with(|p| readable_palette_color(p.colors()));
+        let palette = colours.with(|p| {
+            let colors = p.colors();
+            let background_color = canvas_background_color(colors);
+            let text_color = readable_palette_color(colors);
+            let code_background_color = code_block_background_color(colors);
+            let code_text_color = most_contrasting_palette_color(colors, code_background_color)
+                .unwrap_or(background_color);
+
+            (
+                background_color,
+                text_color,
+                code_background_color,
+                code_text_color,
+            )
+        });
+        let (_, text_color, _, _) = palette;
         let shadow_color = if relative_luminance(text_color) > 0.5 {
             "rgba(0, 0, 0, 0.55)"
         } else {
@@ -153,11 +168,16 @@ pub fn use_provide_slider_hue() -> SliderHue {
             .and_then(|document| document.document_element())
             .and_then(|root| root.dyn_into::<web_sys::HtmlElement>().ok())
         {
-            let background_color = colours.with(|p| canvas_background_color(p.colors()));
+            let (background_color, text_color, code_background_color, code_text_color) = palette;
             let style = root.style();
             _ = style.set_property("--poline-background-color", &rgb_css(background_color));
             _ = style.set_property("--poline-text-color", &rgb_css(text_color));
             _ = style.set_property("--poline-text-shadow", shadow_color);
+            _ = style.set_property(
+                "--poline-code-background-color",
+                &rgb_css(code_background_color),
+            );
+            _ = style.set_property("--poline-code-text-color", &rgb_css(code_text_color));
         }
     });
 
@@ -227,22 +247,21 @@ fn canvas_background_color(colors: &[[u8; 3]]) -> [u8; 3] {
         .unwrap_or([0, 0, 0])
 }
 
+fn most_contrasting_palette_color(colors: &[[u8; 3]], background: [u8; 3]) -> Option<[u8; 3]> {
+    colors.iter().copied().max_by(|a, b| {
+        contrast_ratio(*a, background)
+            .partial_cmp(&contrast_ratio(*b, background))
+            .unwrap_or(std::cmp::Ordering::Equal)
+    })
+}
+
 fn readable_palette_color(colors: &[[u8; 3]]) -> [u8; 3] {
-    if colors.is_empty() {
-        return [255, 255, 255];
-    }
-
-    let background = canvas_background_color(colors);
-
-    colors
-        .iter()
-        .copied()
-        .max_by(|a, b| {
-            contrast_ratio(*a, background)
-                .partial_cmp(&contrast_ratio(*b, background))
-                .unwrap_or(std::cmp::Ordering::Equal)
-        })
+    most_contrasting_palette_color(colors, canvas_background_color(colors))
         .unwrap_or([255, 255, 255])
+}
+
+fn code_block_background_color(colors: &[[u8; 3]]) -> [u8; 3] {
+    most_contrasting_palette_color(colors, canvas_background_color(colors)).unwrap_or([31, 41, 55])
 }
 
 fn rgb_css([r, g, b]: [u8; 3]) -> String {
