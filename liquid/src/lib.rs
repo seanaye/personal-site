@@ -59,7 +59,7 @@ impl LiquidGrid {
         else {
             return;
         };
-        *v = 256.0;
+        *v += 256.0;
     }
 
     pub fn grid(&self) -> &Grid<f64> {

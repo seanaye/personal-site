@@ -31,12 +31,13 @@ fn fs(@builtin(position) frag_coord: vec4f) -> @location(0) vec2f {
     let w = params.width;
     let h = params.height;
 
-    // Check if this pixel is in a 2x2 drop block.
+    // Check if this pixel is in a 2x2 drop block. Add the impulse to the
+    // existing height instead of replacing it, preserving overlapping waves.
     for (var i = 0u; i < drops.count; i++) {
         let drop = drops.coords[i];
         if ((x == drop.x || x == drop.x + 1u) && (y == drop.y || y == drop.y + 1u)) {
-            let prev = textureLoad(input_tex, vec2i(i32(x), i32(y)), 0).r;
-            return vec2f(256.0, prev);
+            let old = textureLoad(input_tex, vec2i(i32(x), i32(y)), 0);
+            return vec2f(old.r + 256.0, old.r);
         }
     }
 
