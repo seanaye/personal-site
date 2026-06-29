@@ -1,7 +1,5 @@
 use std::collections::HashMap;
 
-use grid::Dimension;
-use photogrid::{PhotoLayoutData, SrcSet};
 use serde::{Deserialize, Serialize};
 use url::Url;
 
@@ -32,14 +30,26 @@ impl From<&str> for ImageId {
     }
 }
 
+impl std::fmt::Display for ImageId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ImageDimensions {
+    pub width: usize,
+    pub height: usize,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ImageVariant {
     pub url: Url,
-    pub dimensions: Dimension,
+    pub dimensions: ImageDimensions,
 }
 
 impl ImageVariant {
-    pub fn new(url: Url, dimensions: Dimension) -> Self {
+    pub fn new(url: Url, dimensions: ImageDimensions) -> Self {
         Self { url, dimensions }
     }
 }
@@ -67,36 +77,10 @@ impl Image {
             metadata,
         })
     }
-
-    pub fn into_photo_layout_data(self) -> PhotoLayoutData {
-        PhotoLayoutData {
-            srcs: self
-                .variants
-                .into_iter()
-                .map(|variant| SrcSet {
-                    dimensions: variant.dimensions,
-                    url: variant.url,
-                })
-                .collect(),
-            metadata: self.metadata,
-        }
-    }
-}
-
-impl From<Image> for PhotoLayoutData {
-    fn from(value: Image) -> Self {
-        value.into_photo_layout_data()
-    }
 }
 
 #[derive(Debug, thiserror::Error)]
 pub enum ImageError {
     #[error("image `{id}` has no variants")]
     MissingVariants { id: ImageId },
-}
-
-impl std::fmt::Display for ImageId {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(self.as_str())
-    }
 }

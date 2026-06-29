@@ -1798,11 +1798,6 @@ dependencies = [
 name = "images"
 version = "0.1.0"
 dependencies = [
- "async-trait",
- "grid",
- "list-bucket",
- "photogrid",
- "rust-s3",
  "serde",
  "thiserror 1.0.69",
  "tokio",

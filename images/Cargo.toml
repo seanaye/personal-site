@@ -4,11 +4,6 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-async-trait = "0.1.83"
-grid = { path = "../grid", features = ["parse"] }
-list-bucket = { path = "../list-bucket" }
-photogrid = { path = "../photogrid" }
-rust-s3 = "0.35.1"
 serde = { version = "1.0.210", features = ["derive"] }
 thiserror.workspace = true
 url = { version = "2.5.2", features = ["serde"] }

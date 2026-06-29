@@ -1,5 +1,3 @@
-use photogrid::PhotoLayoutData;
-
 use crate::{domain::Image, ports::ImageRepository};
 
 /// Application service/use-case layer for image queries.
@@ -28,24 +26,16 @@ where
     pub async fn images(&self) -> Result<Vec<Image>, R::Error> {
         self.repository.fetch_images().await
     }
-
-    pub async fn photo_layout_data(&self) -> Result<Vec<PhotoLayoutData>, R::Error> {
-        self.images()
-            .await
-            .map(|images| images.into_iter().map(Into::into).collect())
-    }
 }
 
 #[cfg(test)]
 mod tests {
     use std::convert::Infallible;
 
-    use async_trait::async_trait;
-    use grid::Dimension;
     use url::Url;
 
     use crate::{
-        domain::{Image, ImageId, ImageVariant},
+        domain::{Image, ImageDimensions, ImageId, ImageVariant},
         ports::ImageRepository,
     };
 
@@ -53,33 +43,36 @@ mod tests {
 
     struct FakeImageRepository;
 
-    #[async_trait]
     impl ImageRepository for FakeImageRepository {
         type Error = Infallible;
 
-        async fn fetch_images(&self) -> Result<Vec<Image>, Self::Error> {
-            Ok(vec![Image::new(
-                ImageId::new("hero.jpg"),
-                vec![ImageVariant::new(
-                    Url::parse("https://cdn.example.com/hero.jpg").unwrap(),
-                    Dimension {
-                        width: 1200,
-                        height: 800,
-                    },
-                )],
-                Default::default(),
-            )
-            .unwrap()])
+        fn fetch_images(
+            &self,
+        ) -> impl std::future::Future<Output = Result<Vec<Image>, Self::Error>> + Send {
+            async {
+                Ok(vec![Image::new(
+                    ImageId::new("hero.jpg"),
+                    vec![ImageVariant::new(
+                        Url::parse("https://cdn.example.com/hero.jpg").unwrap(),
+                        ImageDimensions {
+                            width: 1200,
+                            height: 800,
+                        },
+                    )],
+                    Default::default(),
+                )
+                .unwrap()])
+            }
         }
     }
 
     #[tokio::test]
-    async fn service_maps_images_to_photo_layout_data() {
+    async fn service_fetches_images() {
         let service = ImageService::new(FakeImageRepository);
 
-        let photos = service.photo_layout_data().await.unwrap();
+        let images = service.images().await.unwrap();
 
-        assert_eq!(photos.len(), 1);
-        assert_eq!(photos[0].srcs.len(), 1);
+        assert_eq!(images.len(), 1);
+        assert_eq!(images[0].variants.len(), 1);
     }
 }

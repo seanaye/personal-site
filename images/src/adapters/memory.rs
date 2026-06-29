@@ -1,6 +1,4 @@
-use std::convert::Infallible;
-
-use async_trait::async_trait;
+use std::{convert::Infallible, future::Future};
 
 use crate::{domain::Image, ports::ImageRepository};
 
@@ -15,11 +13,11 @@ impl InMemoryImageRepository {
     }
 }
 
-#[async_trait]
 impl ImageRepository for InMemoryImageRepository {
     type Error = Infallible;
 
-    async fn fetch_images(&self) -> Result<Vec<Image>, Self::Error> {
-        Ok(self.images.clone())
+    fn fetch_images(&self) -> impl Future<Output = Result<Vec<Image>, Self::Error>> + Send {
+        let images = self.images.clone();
+        async move { Ok(images) }
     }
 }
