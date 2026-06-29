@@ -225,6 +225,7 @@ struct BlogPost {
     slug: &'static str,
     title: &'static str,
     excerpt: Option<&'static str>,
+    draft: bool,
     content: &'static str,
 }
 
@@ -234,8 +235,28 @@ fn blog_post(slug: &str) -> Option<&'static BlogPost> {
     BLOG_POSTS.iter().find(|post| post.slug == slug)
 }
 
+fn can_show_post(post: &BlogPost, show_drafts: bool) -> bool {
+    !post.draft || show_drafts
+}
+
+#[derive(Debug, PartialEq, Clone)]
+struct BlogQueryParams {
+    draft: bool,
+}
+
+impl Params for BlogQueryParams {
+    fn from_map(map: &params::ParamsMap) -> Result<Self, params::ParamsError> {
+        Ok(Self {
+            draft: map.get_str("draft").is_some_and(|value| value == "true"),
+        })
+    }
+}
+
 #[component]
 fn BlogPage() -> impl IntoView {
+    let query = use_query::<BlogQueryParams>();
+    let show_drafts = move || query.get().map(|params| params.draft).unwrap_or(false);
+
     view! {
         <section class="contents">
             <Canvas>
@@ -243,22 +264,34 @@ fn BlogPage() -> impl IntoView {
                     <PolineText>
                         <div class="prose font-mono [--tw-prose-body:currentColor] [--tw-prose-headings:currentColor] [--tw-prose-links:currentColor] [--tw-prose-bold:currentColor] [--tw-prose-counters:currentColor] [--tw-prose-bullets:currentColor] [--tw-prose-hr:currentColor] [--tw-prose-quotes:currentColor] [--tw-prose-quote-borders:currentColor] [--tw-prose-captions:currentColor] [--tw-prose-code:currentColor] [--tw-prose-pre-bg:var(--poline-code-background-color)] [--tw-prose-pre-code:var(--poline-code-text-color)] [--tw-prose-th-borders:currentColor] [--tw-prose-td-borders:currentColor] [&_code]:[text-shadow:none] [&_pre]:[text-shadow:none] prose-a:transition-opacity hover:prose-a:opacity-75">
                             <h1>"blog"</h1>
-                            {if BLOG_POSTS.is_empty() {
-                                view! { <p>"No posts yet."</p> }.into_any()
-                            } else {
-                                BLOG_POSTS
+                            {move || {
+                                let show_drafts = show_drafts();
+                                let posts = BLOG_POSTS
                                     .iter()
-                                    .map(|post| {
-                                        let href = format!("/blog/{}", post.slug);
-                                        view! {
-                                            <article>
-                                                <h2><A href=href>{post.title}</A></h2>
-                                                {post.excerpt.map(|excerpt| view! { <p>{excerpt}</p> })}
-                                            </article>
-                                        }
-                                    })
-                                    .collect_view()
-                                    .into_any()
+                                    .filter(|post| can_show_post(post, show_drafts))
+                                    .collect::<Vec<_>>();
+
+                                if posts.is_empty() {
+                                    view! { <p>"No posts yet."</p> }.into_any()
+                                } else {
+                                    posts
+                                        .into_iter()
+                                        .map(|post| {
+                                            let href = if show_drafts {
+                                                format!("/blog/{}?draft=true", post.slug)
+                                            } else {
+                                                format!("/blog/{}", post.slug)
+                                            };
+                                            view! {
+                                                <article>
+                                                    <h2><A href=href>{post.title}</A></h2>
+                                                    {post.excerpt.map(|excerpt| view! { <p>{excerpt}</p> })}
+                                                </article>
+                                            }
+                                        })
+                                        .collect_view()
+                                        .into_any()
+                                }
                             }}
                         </div>
                     </PolineText>
@@ -284,7 +317,15 @@ impl Params for BlogParams {
 #[component]
 fn BlogPostPage() -> impl IntoView {
     let params = use_params::<BlogParams>();
-    let post = params.get().ok().and_then(|params| blog_post(&params.slug));
+    let query = use_query::<BlogQueryParams>();
+    let show_drafts = move || query.get().map(|params| params.draft).unwrap_or(false);
+    let post = move || {
+        params
+            .get()
+            .ok()
+            .and_then(|params| blog_post(&params.slug))
+            .filter(|post| can_show_post(post, show_drafts()))
+    };
 
     view! {
         <article class="contents">
@@ -295,7 +336,7 @@ fn BlogPostPage() -> impl IntoView {
                             class="prose font-mono [--tw-prose-body:currentColor] [--tw-prose-headings:currentColor] [--tw-prose-links:currentColor] [--tw-prose-bold:currentColor] [--tw-prose-counters:currentColor] [--tw-prose-bullets:currentColor] [--tw-prose-hr:currentColor] [--tw-prose-quotes:currentColor] [--tw-prose-quote-borders:currentColor] [--tw-prose-captions:currentColor] [--tw-prose-code:currentColor] [--tw-prose-pre-bg:var(--poline-code-background-color)] [--tw-prose-pre-code:var(--poline-code-text-color)] [--tw-prose-th-borders:currentColor] [--tw-prose-td-borders:currentColor] prose-a:transition-opacity hover:prose-a:opacity-75"
                             style="text-shadow: none;"
                         >
-                            {match post {
+                            {move || match post() {
                                 Some(post) => view! { <Markdown content=post.content /> }.into_any(),
                                 None => view! { <p>"Post not found."</p> }.into_any(),
                             }}

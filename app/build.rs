@@ -8,6 +8,8 @@ use std::{
 struct Frontmatter {
     title: String,
     excerpt: Option<String>,
+    #[serde(default)]
+    draft: bool,
 }
 
 fn rust_string(value: impl AsRef<str>) -> String {
@@ -103,6 +105,7 @@ fn main() {
             )),
             None => output.push_str("        excerpt: None,\n"),
         }
+        output.push_str(&format!("        draft: {},\n", post.frontmatter.draft));
         output.push_str(&format!(
             "        content: {},\n",
             rust_string(post.content)
