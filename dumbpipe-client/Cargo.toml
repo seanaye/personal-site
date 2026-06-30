@@ -1,0 +1,13 @@
+[package]
+name = "dumbpipe-client"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+iroh = { version = "1.0", default-features = false, features = ["tls-ring"] }
+iroh-tickets = "1.0"
+noq = "1.0"
+thiserror.workspace = true
+tokio.workspace = true
+tokio-util = "0.7"
+tracing = "0.1"
