@@ -10,5 +10,8 @@ url = { version = "2.5.2", features = ["serde"] }
 
 [dev-dependencies]
 dumbpipe-client = { path = "../dumbpipe-client" }
+futures = "0.3"
 immich-sdk = { path = "../immich-sdk" }
+reqwest = "0.13"
 tokio.workspace = true
+uuid = "1"

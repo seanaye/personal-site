@@ -14,6 +14,7 @@ fn main() {
     for operation_id in remove_unsupported_operations(&mut spec) {
         println!("cargo:warning=skipping unsupported Immich operation `{operation_id}`");
     }
+    remove_array_formats(&mut spec);
 
     let spec = serde_json::from_value(spec).expect("failed to parse patched Immich OpenAPI spec");
     let mut generator = progenitor::Generator::default();
@@ -65,6 +66,29 @@ fn remove_unsupported_operations(spec: &mut serde_json::Value) -> Vec<String> {
     }
 
     skipped
+}
+
+fn remove_array_formats(value: &mut serde_json::Value) {
+    let Some(object) = value.as_object_mut() else {
+        if let Some(array) = value.as_array_mut() {
+            for item in array {
+                remove_array_formats(item);
+            }
+        }
+        return;
+    };
+
+    if object
+        .get("type")
+        .and_then(serde_json::Value::as_str)
+        .is_some_and(|type_| type_ == "array")
+    {
+        object.remove("format");
+    }
+
+    for value in object.values_mut() {
+        remove_array_formats(value);
+    }
 }
 
 fn has_unsupported_request_content_type(operation: &serde_json::Value) -> bool {
