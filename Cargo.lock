@@ -2636,6 +2636,8 @@ dependencies = [
 name = "images"
 version = "0.1.0"
 dependencies = [
+ "dumbpipe-client",
+ "immich-sdk",
  "serde",
  "thiserror 1.0.69",
  "tokio",

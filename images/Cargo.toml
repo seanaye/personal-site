@@ -9,4 +9,6 @@ thiserror.workspace = true
 url = { version = "2.5.2", features = ["serde"] }
 
 [dev-dependencies]
+dumbpipe-client = { path = "../dumbpipe-client" }
+immich-sdk = { path = "../immich-sdk" }
 tokio.workspace = true
