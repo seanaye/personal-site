@@ -68,10 +68,7 @@ impl ImageRepository for InMemoryImageRepository {
         let id = id.clone();
         async move {
             bytes
-                .map(|bytes| ImageBytes {
-                    bytes,
-                    content_type: None,
-                })
+                .map(|bytes| ImageBytes::from_bytes(bytes, None))
                 .ok_or(InMemoryRepositoryError::NotFound(id))
         }
     }

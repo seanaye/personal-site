@@ -2636,6 +2636,7 @@ dependencies = [
 name = "images"
 version = "0.1.0"
 dependencies = [
+ "bytes",
  "dumbpipe-client",
  "futures",
  "immich-sdk",

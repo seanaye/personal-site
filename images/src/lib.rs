@@ -14,7 +14,7 @@ pub mod ports;
 
 pub use application::ImageService;
 pub use domain::{
-    Image, ImageBytes, ImageCursor, ImageDimensions, ImageError, ImageId, ImageMetadata,
-    ImagePage, ImageVariant,
+    Image, ImageByteStream, ImageBytes, ImageCursor, ImageDimensions, ImageError, ImageId,
+    ImageMetadata, ImagePage, ImageVariant,
 };
 pub use ports::ImageRepository;

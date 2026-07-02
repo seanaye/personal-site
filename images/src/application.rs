@@ -96,12 +96,13 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn service_fetches_image_bytes() {
+    async fn service_fetches_image_bytes_as_stream() {
         let service = service();
 
-        let bytes = service.image_bytes(&ImageId::new("a.jpg")).await.unwrap();
+        let image_bytes = service.image_bytes(&ImageId::new("a.jpg")).await.unwrap();
+        let bytes = image_bytes.into_bytes().await.unwrap();
 
-        assert_eq!(bytes.bytes, vec![0xff, 0xd8, 0xff]);
+        assert_eq!(bytes.as_ref(), &[0xff, 0xd8, 0xff]);
     }
 
     #[tokio::test]

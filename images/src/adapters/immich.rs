@@ -8,7 +8,7 @@
 use std::future::Future;
 
 use dumbpipe_client::{DumbpipeTunnel, EndpointTicket, TunnelConfig};
-use futures::TryStreamExt;
+use futures::{StreamExt, TryStreamExt};
 use immich_sdk::{
     types::{AssetMediaSize, AssetResponseDto, AssetTypeEnum, MetadataSearchDto},
     Client,
@@ -174,20 +174,12 @@ impl ImageRepository for ImmichImageRepository {
                 .and_then(|value| value.to_str().ok())
                 .map(str::to_owned);
 
-            let mut stream = response.into_inner_stream();
-            let mut bytes = Vec::new();
-            while let Some(chunk) = stream
-                .try_next()
-                .await
-                .map_err(ImmichRepositoryError::Stream)?
-            {
-                bytes.extend_from_slice(&chunk);
-            }
+            let stream = response
+                .into_inner_stream()
+                .map_err(std::io::Error::other)
+                .boxed();
 
-            Ok(ImageBytes {
-                bytes,
-                content_type,
-            })
+            Ok(ImageBytes::new(stream, content_type))
         }
     }
 }
@@ -206,9 +198,6 @@ pub enum ImmichRepositoryError {
 
     #[error("Immich API error: {0}")]
     Api(String),
-
-    #[error("failed to stream image bytes: {0}")]
-    Stream(reqwest::Error),
 
     #[error("invalid pagination cursor `{0}`")]
     InvalidCursor(ImageCursor),

@@ -101,11 +101,20 @@ async fn service_lists_images_and_fetches_bytes_through_dumbpipe() {
     }
 
     let image = &first_page.images[0];
-    let bytes = service
+    let image_bytes = service
         .image_bytes(&image.id)
         .await
         .expect("image bytes should fetch by id");
-    assert!(!bytes.bytes.is_empty(), "image bytes should not be empty");
+    let mut stream = image_bytes.stream;
+    let mut total_bytes = 0usize;
+    while let Some(chunk) = stream
+        .try_next()
+        .await
+        .expect("image bytes should stream successfully")
+    {
+        total_bytes += chunk.len();
+    }
+    assert!(total_bytes > 0, "image byte stream should not be empty");
 
     service
         .into_repository()

@@ -1,5 +1,7 @@
 use std::collections::HashMap;
 
+use bytes::Bytes;
+use futures::{stream::BoxStream, StreamExt, TryStreamExt};
 use serde::{Deserialize, Serialize};
 use url::Url;
 
@@ -119,11 +121,53 @@ pub struct ImagePage {
     pub next_cursor: Option<ImageCursor>,
 }
 
+/// Lazily-evaluated stream of raw image bytes.
+pub type ImageByteStream = BoxStream<'static, std::io::Result<Bytes>>;
+
 /// Raw image content fetched from the backing store.
-#[derive(Debug, Clone)]
+///
+/// The bytes are exposed as a lazily-evaluated [`ImageByteStream`] so callers
+/// can forward them (e.g. into an HTTP response body) without buffering the
+/// whole image in memory.
 pub struct ImageBytes {
-    pub bytes: Vec<u8>,
+    pub stream: ImageByteStream,
     pub content_type: Option<String>,
+}
+
+impl ImageBytes {
+    pub fn new(stream: ImageByteStream, content_type: Option<String>) -> Self {
+        Self {
+            stream,
+            content_type,
+        }
+    }
+
+    /// Wrap an already-buffered chunk of bytes as a single-item stream.
+    pub fn from_bytes(bytes: impl Into<Bytes>, content_type: Option<String>) -> Self {
+        let bytes = bytes.into();
+        Self {
+            stream: futures::stream::once(async move { Ok(bytes) }).boxed(),
+            content_type,
+        }
+    }
+
+    /// Drain the stream into a single buffer.
+    ///
+    /// Convenience for callers (and tests) that do want the whole image in
+    /// memory.
+    pub async fn into_bytes(self) -> std::io::Result<Bytes> {
+        let chunks: Vec<Bytes> = self.stream.try_collect().await?;
+        Ok(chunks.concat().into())
+    }
+}
+
+impl std::fmt::Debug for ImageBytes {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ImageBytes")
+            .field("stream", &"<byte stream>")
+            .field("content_type", &self.content_type)
+            .finish()
+    }
 }
 
 #[derive(Debug, thiserror::Error)]
