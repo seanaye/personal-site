@@ -1,4 +1,7 @@
-use crate::{domain::Image, ports::ImageRepository};
+use crate::{
+    domain::{ImageBytes, ImageCursor, ImageId, ImagePage},
+    ports::ImageRepository,
+};
 
 /// Application service/use-case layer for image queries.
 pub struct ImageService<R> {
@@ -23,56 +26,90 @@ impl<R> ImageService<R>
 where
     R: ImageRepository + Sync,
 {
-    pub async fn images(&self) -> Result<Vec<Image>, R::Error> {
-        self.repository.fetch_images().await
+    /// List images one page at a time using cursor pagination.
+    ///
+    /// Pass `None` to fetch the first page, then feed the returned
+    /// [`ImagePage::next_cursor`] back in for subsequent pages.
+    pub async fn list_images(
+        &self,
+        cursor: Option<ImageCursor>,
+        limit: usize,
+    ) -> Result<ImagePage, R::Error> {
+        self.repository.list_images(cursor, limit).await
+    }
+
+    /// Fetch the raw bytes for a single image by id.
+    pub async fn image_bytes(&self, id: &ImageId) -> Result<ImageBytes, R::Error> {
+        self.repository.fetch_image_bytes(id).await
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use std::convert::Infallible;
-
     use url::Url;
 
     use crate::{
+        adapters::memory::InMemoryImageRepository,
         domain::{Image, ImageDimensions, ImageId, ImageVariant},
-        ports::ImageRepository,
     };
 
     use super::*;
 
-    struct FakeImageRepository;
+    fn image(id: &str) -> Image {
+        Image::new(
+            ImageId::new(id),
+            vec![ImageVariant::new(
+                Url::parse(&format!("https://cdn.example.com/{id}")).unwrap(),
+                ImageDimensions {
+                    width: 1200,
+                    height: 800,
+                },
+            )],
+            Default::default(),
+        )
+        .unwrap()
+    }
 
-    impl ImageRepository for FakeImageRepository {
-        type Error = Infallible;
-
-        fn fetch_images(
-            &self,
-        ) -> impl std::future::Future<Output = Result<Vec<Image>, Self::Error>> + Send {
-            async {
-                Ok(vec![Image::new(
-                    ImageId::new("hero.jpg"),
-                    vec![ImageVariant::new(
-                        Url::parse("https://cdn.example.com/hero.jpg").unwrap(),
-                        ImageDimensions {
-                            width: 1200,
-                            height: 800,
-                        },
-                    )],
-                    Default::default(),
-                )
-                .unwrap()])
-            }
-        }
+    fn service() -> ImageService<InMemoryImageRepository> {
+        let repository = InMemoryImageRepository::new(vec![
+            (image("a.jpg"), vec![0xff, 0xd8, 0xff]),
+            (image("b.jpg"), vec![0x01]),
+            (image("c.jpg"), vec![0x02]),
+        ]);
+        ImageService::new(repository)
     }
 
     #[tokio::test]
-    async fn service_fetches_images() {
-        let service = ImageService::new(FakeImageRepository);
+    async fn service_lists_images_with_cursor_pagination() {
+        let service = service();
 
-        let images = service.images().await.unwrap();
+        let first_page = service.list_images(None, 2).await.unwrap();
+        assert_eq!(first_page.images.len(), 2);
+        assert_eq!(first_page.images[0].id.as_str(), "a.jpg");
+        assert_eq!(first_page.images[1].id.as_str(), "b.jpg");
+        let cursor = first_page.next_cursor.expect("more images should remain");
 
-        assert_eq!(images.len(), 1);
-        assert_eq!(images[0].variants.len(), 1);
+        let second_page = service.list_images(Some(cursor), 2).await.unwrap();
+        assert_eq!(second_page.images.len(), 1);
+        assert_eq!(second_page.images[0].id.as_str(), "c.jpg");
+        assert!(second_page.next_cursor.is_none());
+    }
+
+    #[tokio::test]
+    async fn service_fetches_image_bytes() {
+        let service = service();
+
+        let bytes = service.image_bytes(&ImageId::new("a.jpg")).await.unwrap();
+
+        assert_eq!(bytes.bytes, vec![0xff, 0xd8, 0xff]);
+    }
+
+    #[tokio::test]
+    async fn service_errors_on_unknown_image() {
+        let service = service();
+
+        let result = service.image_bytes(&ImageId::new("missing.jpg")).await;
+
+        assert!(result.is_err());
     }
 }

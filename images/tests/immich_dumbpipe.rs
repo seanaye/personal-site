@@ -1,5 +1,6 @@
 use dumbpipe_client::{DumbpipeTunnel, EndpointTicket, TunnelConfig};
 use futures::TryStreamExt;
+use images::{adapters::ImmichImageRepository, ImageService};
 use immich_sdk::{types::AssetMediaSize, Client, Error};
 use reqwest::header::{HeaderMap, HeaderValue};
 use uuid::Uuid;
@@ -52,6 +53,62 @@ async fn can_ping_immich_through_dumbpipe() {
     assert_eq!(response.res, "pong");
 
     tunnel
+        .shutdown()
+        .await
+        .expect("dumbpipe tunnel should shut down cleanly");
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn service_lists_images_and_fetches_bytes_through_dumbpipe() {
+    let ticket: EndpointTicket = IMMICH_IROH_TICKET
+        .parse()
+        .expect("test Immich dumbpipe ticket should parse");
+    let repository = ImmichImageRepository::connect(ticket, IMMICH_API_KEY)
+        .await
+        .expect("Immich repository should connect through dumbpipe");
+    let service = ImageService::new(repository);
+
+    let first_page = service
+        .list_images(None, 2)
+        .await
+        .expect("first page of images should list");
+    assert!(
+        !first_page.images.is_empty(),
+        "first page should contain images"
+    );
+    assert!(
+        first_page.images.len() <= 2,
+        "first page should respect the limit"
+    );
+
+    if let Some(cursor) = first_page.next_cursor.clone() {
+        let second_page = service
+            .list_images(Some(cursor), 2)
+            .await
+            .expect("second page of images should list");
+        let first_ids: Vec<_> = first_page
+            .images
+            .iter()
+            .map(|image| image.id.clone())
+            .collect();
+        assert!(
+            second_page
+                .images
+                .iter()
+                .all(|image| !first_ids.contains(&image.id)),
+            "second page should not repeat first page images"
+        );
+    }
+
+    let image = &first_page.images[0];
+    let bytes = service
+        .image_bytes(&image.id)
+        .await
+        .expect("image bytes should fetch by id");
+    assert!(!bytes.bytes.is_empty(), "image bytes should not be empty");
+
+    service
+        .into_repository()
         .shutdown()
         .await
         .expect("dumbpipe tunnel should shut down cleanly");
