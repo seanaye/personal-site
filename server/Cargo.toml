@@ -20,6 +20,7 @@ rust-s3 = "0.35.1"
 anyhow = "1.0.87"
 base64 = "0.22"
 chrono = "0.4"
+config = "0.15"
 hmac = "0.12"
 images = { path = "../images" }
 sha2 = "0.10"

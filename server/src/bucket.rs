@@ -9,20 +9,20 @@ use s3::{
 };
 use url::Url;
 
-pub fn get_bucket() -> Result<Box<Bucket>, S3Error> {
-    let key = std::env::var("R2_ACCESS_KEY").unwrap();
-    let secret = std::env::var("R2_SECRET_KEY").unwrap();
+use crate::config::R2Config;
+
+pub fn get_bucket(config: &R2Config) -> Result<Box<Bucket>, S3Error> {
     let credentials = Credentials {
-        access_key: Some(key),
-        secret_key: Some(secret),
+        access_key: Some(config.access_key.clone()),
+        secret_key: Some(config.secret_key.clone()),
         security_token: None,
         session_token: None,
         expiration: None,
     };
     Bucket::new(
-        std::env::var("R2_BUCKET_NAME").unwrap().as_str(),
+        config.bucket_name.as_str(),
         Region::R2 {
-            account_id: std::env::var("R2_ACCOUNT_ID").unwrap(),
+            account_id: config.account_id.clone(),
         },
         credentials,
     )

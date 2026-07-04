@@ -174,8 +174,22 @@
           doCheck = false;
         });
 
+        # Encrypted secrets file (as a derivation so it can be included in the image)
+        secretsEncFile = ./secrets.enc.json;
+        secretsEnc = pkgs.runCommand "secrets-enc" { } ''
+          mkdir -p $out
+          cp ${secretsEncFile} $out/secrets.enc.json
+        '';
+
         runApp = pkgs.writeShellScript "run-personal-site" ''
+          set -euo pipefail
           cd /app
+
+          # Decrypt secrets to the working directory where the app expects
+          # them. Requires SOPS_AGE_KEY to be set (e.g. as a Fly secret);
+          # the container fails hard if decryption fails.
+          ${pkgs.sops}/bin/sops --decrypt ${secretsEnc}/secrets.enc.json > secrets.json
+
           exec ${personalSite}/bin/personal_site
         '';
 
@@ -186,6 +200,8 @@
             personalSite
             pkgs.bashInteractive
             pkgs.cacert
+            pkgs.sops
+            secretsEnc
           ];
           fakeRootCommands = ''
             mkdir -p ./app
@@ -238,6 +254,9 @@
             pkg-config
             openssl
             taplo
+            rage
+            sops
+            ssh-to-age
           ];
         };
       }

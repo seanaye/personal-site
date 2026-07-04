@@ -28,3 +28,15 @@ push tag=sha: load
 # Deploy to Fly.io
 deploy tag=sha: (push tag)
     flyctl deploy --image registry.fly.io/personal-site-astvuq:{{ tag }}
+
+# Encrypt secrets.json to secrets.enc.json (recipients come from .sops.yaml)
+encrypt-secrets:
+    sops --encrypt secrets.json > secrets.enc.json
+
+# Decrypt secrets.enc.json to secrets.json for local development
+decrypt-secrets:
+    sops decrypt secrets.enc.json > secrets.json
+
+# Edit secrets.enc.json in-place using YubiKey
+edit-secrets:
+    sops edit secrets.enc.json
