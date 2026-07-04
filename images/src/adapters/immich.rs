@@ -19,8 +19,8 @@ use uuid::Uuid;
 
 use crate::{
     domain::{
-        Image, ImageBytes, ImageCursor, ImageDimensions, ImageError, ImageId, ImageMetadata,
-        ImagePage, ImageVariant,
+        Image, ImageBytes, ImageCursor, ImageDateRange, ImageDimensions, ImageError, ImageId,
+        ImageMetadata, ImagePage, ImageVariant,
     },
     ports::ImageRepository,
 };
@@ -76,6 +76,41 @@ impl ImmichImageRepository {
         Ok(())
     }
 
+    /// Convert an [`ImageCursor`] back into Immich's numeric page token.
+    fn cursor_to_page(cursor: Option<&ImageCursor>) -> Result<Option<f64>, ImmichRepositoryError> {
+        match cursor {
+            None => Ok(None),
+            Some(cursor) => cursor
+                .as_str()
+                .parse::<f64>()
+                .map(Some)
+                .map_err(|_| ImmichRepositoryError::InvalidCursor(cursor.clone())),
+        }
+    }
+
+    /// Run a `/search/metadata` query and map the result into an [`ImagePage`].
+    async fn search_page(&self, body: MetadataSearchDto) -> Result<ImagePage, ImmichRepositoryError> {
+        let response = self
+            .client
+            .search_assets(&body)
+            .await
+            .map_err(ImmichRepositoryError::api)?
+            .into_inner();
+
+        let images = response
+            .assets
+            .items
+            .iter()
+            .map(|asset| self.asset_to_image(asset))
+            .collect::<Result<Vec<_>, _>>()?;
+        let next_cursor = response.assets.next_page.map(ImageCursor::new);
+
+        Ok(ImagePage {
+            images,
+            next_cursor,
+        })
+    }
+
     fn asset_to_image(&self, asset: &AssetResponseDto) -> Result<Image, ImmichRepositoryError> {
         let url = Url::parse(&format!(
             "{}/assets/{}/thumbnail?size=fullsize",
@@ -116,12 +151,7 @@ impl ImageRepository for ImmichImageRepository {
         limit: usize,
     ) -> impl Future<Output = Result<ImagePage, Self::Error>> + Send {
         async move {
-            let page = match &cursor {
-                None => None,
-                Some(cursor) => Some(cursor.as_str().parse::<f64>().map_err(|_| {
-                    ImmichRepositoryError::InvalidCursor(cursor.clone())
-                })?),
-            };
+            let page = Self::cursor_to_page(cursor.as_ref())?;
 
             let body = MetadataSearchDto {
                 page,
@@ -131,25 +161,30 @@ impl ImageRepository for ImmichImageRepository {
                 ..Default::default()
             };
 
-            let response = self
-                .client
-                .search_assets(&body)
-                .await
-                .map_err(ImmichRepositoryError::api)?
-                .into_inner();
+            self.search_page(body).await
+        }
+    }
 
-            let images = response
-                .assets
-                .items
-                .iter()
-                .map(|asset| self.asset_to_image(asset))
-                .collect::<Result<Vec<_>, _>>()?;
-            let next_cursor = response.assets.next_page.map(ImageCursor::new);
+    fn list_images_taken_in(
+        &self,
+        range: ImageDateRange,
+        cursor: Option<ImageCursor>,
+        limit: usize,
+    ) -> impl Future<Output = Result<ImagePage, Self::Error>> + Send {
+        async move {
+            let page = Self::cursor_to_page(cursor.as_ref())?;
 
-            Ok(ImagePage {
-                images,
-                next_cursor,
-            })
+            let body = MetadataSearchDto {
+                page,
+                size: Some(limit as f64),
+                type_: Some(AssetTypeEnum::Image),
+                with_exif: Some(true),
+                taken_after: range.after,
+                taken_before: range.before,
+                ..Default::default()
+            };
+
+            self.search_page(body).await
         }
     }
 

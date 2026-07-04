@@ -1,6 +1,6 @@
 use std::future::Future;
 
-use crate::domain::{ImageBytes, ImageCursor, ImageId, ImagePage};
+use crate::domain::{ImageBytes, ImageCursor, ImageDateRange, ImageId, ImagePage};
 
 /// Outbound port for whatever storage backend can fetch website images.
 pub trait ImageRepository {
@@ -12,6 +12,15 @@ pub trait ImageRepository {
     /// [`ImagePage::next_cursor`] back in to fetch subsequent pages.
     fn list_images(
         &self,
+        cursor: Option<ImageCursor>,
+        limit: usize,
+    ) -> impl Future<Output = Result<ImagePage, Self::Error>> + Send;
+
+    /// List images taken within `range`, one page at a time using cursor
+    /// pagination (same cursor semantics as [`ImageRepository::list_images`]).
+    fn list_images_taken_in(
+        &self,
+        range: ImageDateRange,
         cursor: Option<ImageCursor>,
         limit: usize,
     ) -> impl Future<Output = Result<ImagePage, Self::Error>> + Send;

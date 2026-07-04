@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use bytes::Bytes;
+use chrono::{DateTime, Utc};
 use futures::{stream::BoxStream, StreamExt, TryStreamExt};
 use serde::{Deserialize, Serialize};
 use url::Url;
@@ -78,6 +79,29 @@ impl Image {
             variants,
             metadata,
         })
+    }
+}
+
+/// Half-open date range used to filter images by when they were taken.
+///
+/// `None` bounds are unbounded on that side.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ImageDateRange {
+    /// Only include images taken at or after this instant.
+    pub after: Option<DateTime<Utc>>,
+    /// Only include images taken at or before this instant.
+    pub before: Option<DateTime<Utc>>,
+}
+
+impl ImageDateRange {
+    pub fn new(after: Option<DateTime<Utc>>, before: Option<DateTime<Utc>>) -> Self {
+        Self { after, before }
+    }
+
+    /// Whether `instant` falls inside the range.
+    pub fn contains(&self, instant: DateTime<Utc>) -> bool {
+        self.after.map_or(true, |after| instant >= after)
+            && self.before.map_or(true, |before| instant <= before)
     }
 }
 

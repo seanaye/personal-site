@@ -11,7 +11,7 @@ use leptos_router::components::{Route, Router, Routes, A};
 use leptos_router::hooks::{use_params, use_query};
 use leptos_router::*;
 mod canvas_grid;
-mod components;
+pub mod components;
 mod hooks;
 mod log_js_trait;
 #[cfg(all(feature = "hydrate", target_arch = "wasm32"))]

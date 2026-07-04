@@ -8,7 +8,10 @@ use leptos::prelude::*;
 use leptos_axum::{generate_route_list, LeptosRoutes};
 use photo_search::PhotoAccess;
 use photogrid::{PhotoLayoutData, ResponsivePhotoGrid, SrcSet};
+use images::{adapters::ImmichImageRepository, ImageService};
+use photo_share::PhotoShareState;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use sign::TokenSigner;
 use std::{
     collections::HashMap,
     fs::File,
@@ -16,6 +19,58 @@ use std::{
     sync::Arc,
 };
 mod bucket;
+mod photo_share;
+mod sign;
+
+/// Build the signed photo-share routes from environment configuration.
+///
+/// Requires `PHOTO_TOKEN_SECRET`, `IMMICH_API_KEY` and one of
+/// `IMMICH_BASE_URL` (direct) or `IMMICH_IROH_TICKET` (dumbpipe tunnel).
+/// Returns `None` (and logs why) when the feature is not configured.
+async fn photo_share_router() -> Option<Router> {
+    let secret = match std::env::var("PHOTO_TOKEN_SECRET") {
+        Ok(secret) if !secret.is_empty() => secret,
+        _ => {
+            log::warn!("PHOTO_TOKEN_SECRET not set; photo share routes disabled");
+            return None;
+        }
+    };
+    let api_key = match std::env::var("IMMICH_API_KEY") {
+        Ok(api_key) => api_key,
+        Err(_) => {
+            log::warn!("IMMICH_API_KEY not set; photo share routes disabled");
+            return None;
+        }
+    };
+
+    let repository = if let Ok(base_url) = std::env::var("IMMICH_BASE_URL") {
+        ImmichImageRepository::with_base_url(&base_url, &api_key)
+            .inspect_err(|error| log::error!("failed to build Immich client: {error}"))
+            .ok()?
+    } else if let Ok(ticket) = std::env::var("IMMICH_IROH_TICKET") {
+        let ticket = ticket
+            .parse()
+            .inspect_err(|error| log::error!("invalid IMMICH_IROH_TICKET: {error}"))
+            .ok()?;
+        ImmichImageRepository::connect(ticket, &api_key)
+            .await
+            .inspect_err(|error| log::error!("failed to connect Immich dumbpipe tunnel: {error}"))
+            .ok()?
+    } else {
+        log::warn!("neither IMMICH_BASE_URL nor IMMICH_IROH_TICKET set; photo share routes disabled");
+        return None;
+    };
+
+    let public_base_url = std::env::var("PUBLIC_BASE_URL")
+        .ok()
+        .and_then(|value| value.parse().ok());
+
+    Some(photo_share::router(Arc::new(PhotoShareState {
+        service: ImageService::new(repository),
+        signer: TokenSigner::new(secret),
+        public_base_url,
+    })))
+}
 
 async fn photo_data() -> anyhow::Result<impl Iterator<Item = PhotoLayoutData>> {
     let bucket = BucketAccess::new(get_bucket()?, "cdn.seanaye.ca");
@@ -88,7 +143,7 @@ async fn main() {
     let photos: Arc<[PhotoLayoutData]> = Arc::from(data);
 
     // build our application with a route
-    let app = Router::new()
+    let mut app = Router::new()
         .leptos_routes_with_context(
             &leptos_options,
             routes,
@@ -100,6 +155,11 @@ async fn main() {
         )
         .fallback(leptos_axum::file_and_error_handler(shell))
         .with_state(leptos_options);
+
+    if let Some(share_router) = photo_share_router().await {
+        log::info!("photo share routes enabled at /photo/{{token}} and /image/{{token}}");
+        app = app.merge(share_router);
+    }
 
     // run our app with hyper
     // `axum::Server` is a re-export of `hyper::Server`
