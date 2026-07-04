@@ -3,7 +3,7 @@ use std::{collections::HashMap, future::Future};
 use chrono::{DateTime, Utc};
 
 use crate::{
-    domain::{Image, ImageBytes, ImageCursor, ImageDateRange, ImageId, ImagePage},
+    domain::{Image, ImageBytes, ImageCursor, ImageDateRange, ImageId, ImagePage, ImageSize},
     ports::ImageRepository,
 };
 
@@ -98,6 +98,7 @@ impl ImageRepository for InMemoryImageRepository {
     fn fetch_image_bytes(
         &self,
         id: &ImageId,
+        _size: ImageSize,
     ) -> impl Future<Output = Result<ImageBytes, Self::Error>> + Send {
         let bytes = self.bytes.get(id).cloned();
         let id = id.clone();

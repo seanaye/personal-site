@@ -1,6 +1,6 @@
 use dumbpipe_client::{DumbpipeTunnel, EndpointTicket, TunnelConfig};
 use futures::TryStreamExt;
-use images::{adapters::ImmichImageRepository, ImageService};
+use images::{adapters::ImmichImageRepository, ImageService, ImageSize};
 use immich_sdk::{types::AssetMediaSize, Client, Error};
 use reqwest::header::{HeaderMap, HeaderValue};
 use uuid::Uuid;
@@ -102,7 +102,7 @@ async fn service_lists_images_and_fetches_bytes_through_dumbpipe() {
 
     let image = &first_page.images[0];
     let image_bytes = service
-        .image_bytes(&image.id)
+        .image_bytes(&image.id, ImageSize::Fullsize)
         .await
         .expect("image bytes should fetch by id");
     let mut stream = image_bytes.stream;

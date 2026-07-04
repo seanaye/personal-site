@@ -1,6 +1,6 @@
 use std::future::Future;
 
-use crate::domain::{ImageBytes, ImageCursor, ImageDateRange, ImageId, ImagePage};
+use crate::domain::{ImageBytes, ImageCursor, ImageDateRange, ImageId, ImagePage, ImageSize};
 
 /// Outbound port for whatever storage backend can fetch website images.
 pub trait ImageRepository {
@@ -25,9 +25,10 @@ pub trait ImageRepository {
         limit: usize,
     ) -> impl Future<Output = Result<ImagePage, Self::Error>> + Send;
 
-    /// Fetch the raw bytes for a single image.
+    /// Fetch the raw bytes for a single image at the requested size.
     fn fetch_image_bytes(
         &self,
         id: &ImageId,
+        size: ImageSize,
     ) -> impl Future<Output = Result<ImageBytes, Self::Error>> + Send;
 }

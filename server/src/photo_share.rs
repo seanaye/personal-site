@@ -3,15 +3,16 @@
 //! - `GET /photo/{token}`: `token` is a signed [`Claims::PhotoRange`]. Renders
 //!   an HTML page with every Immich photo taken in that date range, laid out
 //!   in the photogrid. Each image `src` is itself a signed URL.
-//! - `GET /image/{token}`: `token` is a signed [`Claims::Image`]. Streams the
-//!   raw image bytes from Immich.
+//! - `GET /image/{token}?size={thumbnail|preview|fullsize}`: `token` is a
+//!   signed [`Claims::Image`]. Streams the raw image bytes from Immich at the
+//!   requested size (default `fullsize`).
 
 use std::{collections::HashMap, sync::Arc};
 
 use app::components::PhotoGridComponent;
 use axum::{
     body::Body,
-    extract::{Path, State},
+    extract::{Path, Query, State},
     http::{header, HeaderMap, StatusCode},
     response::{Html, IntoResponse, Response},
     routing::get,
@@ -20,10 +21,12 @@ use axum::{
 use chrono::DateTime;
 use grid::Dimension;
 use images::{
-    adapters::ImmichImageRepository, Image, ImageDateRange, ImageId, ImageService, ImageVariant,
+    adapters::ImmichImageRepository, Image, ImageDateRange, ImageId, ImageService, ImageSize,
+    ImageVariant,
 };
 use leptos::prelude::*;
 use photogrid::{PhotoLayoutData, SrcSet};
+use serde::Deserialize;
 use url::Url;
 
 use crate::sign::{Claims, TokenSigner};
@@ -78,15 +81,23 @@ async fn photo_share_page(
     Html(render_page(data)).into_response()
 }
 
+#[derive(Debug, Default, Deserialize)]
+struct ImageQuery {
+    #[serde(default)]
+    size: ImageSize,
+}
+
 async fn image_bytes(
     State(state): State<Arc<PhotoShareState>>,
     Path(token): Path<String>,
+    query: Query<ImageQuery>,
 ) -> Response {
     let Ok(Claims::Image { id }) = state.signer.verify(&token) else {
         return (StatusCode::FORBIDDEN, "invalid image token").into_response();
     };
+    let size = query.size;
 
-    match state.service.image_bytes(&ImageId::new(id)).await {
+    match state.service.image_bytes(&ImageId::new(id), size).await {
         Ok(image_bytes) => {
             let mut response = Response::builder()
                 .status(StatusCode::OK)
@@ -125,19 +136,27 @@ fn base_url(state: &PhotoShareState, headers: &HeaderMap) -> Result<Url, Respons
 }
 
 /// Map a domain [`Image`] onto the photogrid layout data, replacing direct
-/// Immich URLs with signed `/image/{token}` URLs.
+/// Immich URLs with signed `/image/{token}` URLs. The grid itself loads the
+/// lower-quality preview while the photo links out to the fullsize rendition.
 fn photo_layout_data(image: &Image, base_url: &Url, signer: &TokenSigner) -> Option<PhotoLayoutData> {
     let token = signer.sign(&Claims::Image {
         id: image.id.to_string(),
     });
     let url = base_url.join(&format!("/image/{token}")).ok()?;
+    let sized = |size: &str| {
+        let mut url = url.clone();
+        url.set_query(Some(&format!("size={size}")));
+        url
+    };
+    let preview = sized("preview");
+    let fullsize = sized("fullsize");
 
     let srcs: Vec<SrcSet> = image
         .variants
         .iter()
         .map(|variant| SrcSet {
             dimensions: safe_dimensions(variant),
-            url: url.clone(),
+            url: preview.clone(),
         })
         .collect();
     if srcs.is_empty() {
@@ -151,6 +170,7 @@ fn photo_layout_data(image: &Image, base_url: &Url, signer: &TokenSigner) -> Opt
             .iter()
             .map(|(k, v)| (k.clone(), v.clone()))
             .collect::<HashMap<_, _>>(),
+        href: Some(fullsize),
     })
 }
 

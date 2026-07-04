@@ -20,7 +20,7 @@ use uuid::Uuid;
 use crate::{
     domain::{
         Image, ImageBytes, ImageCursor, ImageDateRange, ImageDimensions, ImageError, ImageId,
-        ImageMetadata, ImagePage, ImageVariant,
+        ImageMetadata, ImagePage, ImageSize, ImageVariant,
     },
     ports::ImageRepository,
 };
@@ -191,15 +191,21 @@ impl ImageRepository for ImmichImageRepository {
     fn fetch_image_bytes(
         &self,
         id: &ImageId,
+        size: ImageSize,
     ) -> impl Future<Output = Result<ImageBytes, Self::Error>> + Send {
         let asset_id = Uuid::parse_str(id.as_str())
             .map_err(|_| ImmichRepositoryError::InvalidImageId(id.clone()));
+        let media_size = match size {
+            ImageSize::Thumbnail => AssetMediaSize::Thumbnail,
+            ImageSize::Preview => AssetMediaSize::Preview,
+            ImageSize::Fullsize => AssetMediaSize::Fullsize,
+        };
 
         async move {
             let asset_id = asset_id?;
             let response = self
                 .client
-                .view_asset(&asset_id, None, None, Some(AssetMediaSize::Fullsize), None)
+                .view_asset(&asset_id, None, None, Some(media_size), None)
                 .await
                 .map_err(ImmichRepositoryError::api)?;
 

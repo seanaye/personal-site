@@ -17,6 +17,9 @@ pub struct SrcSet {
 pub struct PhotoLayoutData {
     pub srcs: Vec<SrcSet>,
     pub metadata: HashMap<String, String>,
+    /// Optional link target for the photo (e.g. a full-resolution version).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub href: Option<Url>,
 }
 
 #[non_exhaustive]

@@ -1,5 +1,5 @@
 use crate::{
-    domain::{Image, ImageBytes, ImageCursor, ImageDateRange, ImageId, ImagePage},
+    domain::{Image, ImageBytes, ImageCursor, ImageDateRange, ImageId, ImagePage, ImageSize},
     ports::ImageRepository,
 };
 
@@ -59,9 +59,9 @@ where
         Ok(images)
     }
 
-    /// Fetch the raw bytes for a single image by id.
-    pub async fn image_bytes(&self, id: &ImageId) -> Result<ImageBytes, R::Error> {
-        self.repository.fetch_image_bytes(id).await
+    /// Fetch the raw bytes for a single image by id at the requested size.
+    pub async fn image_bytes(&self, id: &ImageId, size: ImageSize) -> Result<ImageBytes, R::Error> {
+        self.repository.fetch_image_bytes(id, size).await
     }
 }
 
@@ -148,7 +148,10 @@ mod tests {
     async fn service_fetches_image_bytes_as_stream() {
         let service = service();
 
-        let image_bytes = service.image_bytes(&ImageId::new("a.jpg")).await.unwrap();
+        let image_bytes = service
+            .image_bytes(&ImageId::new("a.jpg"), ImageSize::default())
+            .await
+            .unwrap();
         let bytes = image_bytes.into_bytes().await.unwrap();
 
         assert_eq!(bytes.as_ref(), &[0xff, 0xd8, 0xff]);
@@ -158,7 +161,9 @@ mod tests {
     async fn service_errors_on_unknown_image() {
         let service = service();
 
-        let result = service.image_bytes(&ImageId::new("missing.jpg")).await;
+        let result = service
+            .image_bytes(&ImageId::new("missing.jpg"), ImageSize::default())
+            .await;
 
         assert!(result.is_err());
     }

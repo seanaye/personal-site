@@ -82,6 +82,19 @@ impl Image {
     }
 }
 
+/// Which generated rendition of an image to fetch.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ImageSize {
+    /// Small grid thumbnail.
+    Thumbnail,
+    /// Medium-quality preview (default Immich preview rendition).
+    Preview,
+    /// Full-resolution generated image.
+    #[default]
+    Fullsize,
+}
+
 /// Half-open date range used to filter images by when they were taken.
 ///
 /// `None` bounds are unbounded on that side.

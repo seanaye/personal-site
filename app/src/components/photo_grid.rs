@@ -79,13 +79,32 @@ pub fn PhotoGridComponent(data: Vec<PhotoLayoutData>) -> impl IntoView {
                             );
                             let style = c.style(GridElemStyle);
                             let srcset = srcsets(content.srcs.iter());
+                            let href = content.href.clone();
+                            let img = view! {
+                                <img
+                                    class="object-contain max-h-full max-w-full w-full"
+                                    srcset=srcset
+                                    loading="lazy"
+                                />
+                            };
                             view! {
                                 <SinglePhoto class=class style=style>
-                                    <img
-                                        class="object-contain max-h-full max-w-full w-full"
-                                        srcset=srcset
-                                        loading="lazy"
-                                    />
+                                    {match href {
+                                        Some(href) => {
+                                            view! {
+                                                <a
+                                                    class="contents"
+                                                    href=href.to_string()
+                                                    target="_blank"
+                                                    rel="noopener"
+                                                >
+                                                    {img}
+                                                </a>
+                                            }
+                                                .into_any()
+                                        }
+                                        None => img.into_any(),
+                                    }}
                                 </SinglePhoto>
                             }
                         })

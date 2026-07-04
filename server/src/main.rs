@@ -89,6 +89,7 @@ async fn photo_data() -> anyhow::Result<impl Iterator<Item = PhotoLayoutData>> {
                 })
                 .collect(),
             metadata,
+            href: None,
         })
     }))
 }
