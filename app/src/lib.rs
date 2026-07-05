@@ -73,9 +73,15 @@ pub fn App() -> impl IntoView {
                     <Route path=StaticSegment("/blog") view=BlogPage />
                     <Route path=(StaticSegment("/blog"), ParamSegment("slug")) view=BlogPostPage />
                     <Route path=StaticSegment("/photo") view=PhotoPage />
+                    // In-order streaming is required here: this page has a
+                    // Suspense, and out-of-order streaming leaves swap
+                    // artifacts (<template>/<script>/marker comments) in the
+                    // DOM that desync the islands router's lockstep diff on
+                    // the next navigation, so the html never gets replaced.
                     <Route
                         path=(StaticSegment("/photo"), ParamSegment("token"))
                         view=photo_share::SharedPhotoPage
+                        ssr=SsrMode::InOrder
                     />
                     <Route path=StaticSegment("/search") view=SearchPage />
                 </Routes>

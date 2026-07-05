@@ -1,12 +1,21 @@
 //! Signed photo share page (`/photo/:token`), streamed the Leptos way.
 //!
-//! The route uses the default out-of-order streaming SSR mode: the shell and
-//! the `<Suspense>` fallback are flushed immediately, then the photogrid is
-//! streamed and swapped in once the photos have been fetched from Immich.
+//! The route uses in-order streaming SSR ([`SsrMode::InOrder`]): everything
+//! before the `<Suspense>` (including the document head, so CSS loads early)
+//! is flushed immediately, then the stream pauses until the photos have been
+//! fetched from Immich. In-order mode never renders the Suspense fallback,
+//! so the loading indicator is a plain element ahead of the grid that a
+//! `:has()` rule hides once the grid content streams in.
+//!
+//! Out-of-order streaming cannot be used here: it leaves suspense swap
+//! artifacts (`<template>`, `<script>`, marker comments) in the DOM, which
+//! desync the islands router's lockstep tree diff on the next navigation.
 //!
 //! The app crate stays decoupled from the Immich/token-signing machinery: the
 //! server injects a [`ssr::SharedPhotosFetcher`] into context, and the server
 //! function below simply invokes it.
+//!
+//! [`SsrMode::InOrder`]: leptos_router::SsrMode::InOrder
 
 use leptos::prelude::*;
 use leptos_meta::{Meta, Title};
@@ -79,29 +88,40 @@ pub fn SharedPhotoPage() -> impl IntoView {
         <Meta name="robots" content="noindex" />
         <section class="contents">
             <LayoutContent>
-                <Suspense fallback=|| {
-                    view! { <p class="font-mono animate-pulse">"loading photos…"</p> }
-                }>
-                    {move || Suspend::new(async move {
-                        match photos.await {
-                            Ok(data) if data.is_empty() => {
-                                view! {
-                                    <p class="font-mono">"No photos found for this share link."</p>
+                <style>
+                    "#share-content:has(#share-grid) #share-loading { display: none; }"
+                </style>
+                <div id="share-content">
+                    <p id="share-loading" class="font-mono animate-pulse">
+                        "loading photos…"
+                    </p>
+                    <Suspense>
+                        {move || Suspend::new(async move {
+                            let inner = match photos.await {
+                                Ok(data) if data.is_empty() => {
+                                    view! {
+                                        <p class="font-mono">
+                                            "No photos found for this share link."
+                                        </p>
+                                    }
+                                        .into_any()
                                 }
-                                    .into_any()
-                            }
-                            Ok(data) => view! { <PhotoGridComponent data=data /> }.into_any(),
-                            Err(_) => {
-                                view! {
-                                    <p class="font-mono">
-                                        "This share link is invalid or unavailable."
-                                    </p>
+                                Ok(data) => {
+                                    view! { <PhotoGridComponent data=data /> }.into_any()
                                 }
-                                    .into_any()
-                            }
-                        }
-                    })}
-                </Suspense>
+                                Err(_) => {
+                                    view! {
+                                        <p class="font-mono">
+                                            "This share link is invalid or unavailable."
+                                        </p>
+                                    }
+                                        .into_any()
+                                }
+                            };
+                            view! { <div id="share-grid">{inner}</div> }
+                        })}
+                    </Suspense>
+                </div>
             </LayoutContent>
         </section>
     }
