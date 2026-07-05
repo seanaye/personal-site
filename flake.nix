@@ -86,6 +86,7 @@
               (builtins.match ".*/style(/.*)?" path != null) ||
               (builtins.match ".*/blog(/.*)?" path != null) ||
               (builtins.match ".*/app/src/content(/.*)?" path != null) ||
+              (builtins.match ".*/immich-sdk/openapi(/.*)?" path != null) ||
               (builtins.match ".*/tailwind.config.js$" path != null) ||
               (builtins.match ".*/data.json$" path != null) ||
               (builtins.match ".*/app/src/.*\\.wgsl$" path != null);
@@ -254,9 +255,7 @@
             pkg-config
             openssl
             taplo
-            rage
             sops
-            ssh-to-age
           ];
         };
       }
