@@ -40,7 +40,10 @@ where
 
     /// Fetch every image taken within `range`, walking all pages.
     pub async fn images_taken_in(&self, range: ImageDateRange) -> Result<Vec<Image>, R::Error> {
-        const PAGE_SIZE: usize = 100;
+        // Each page is a full round trip to the backing store (potentially
+        // through a tunnel), so prefer few large pages. Immich caps search
+        // page size at 1000.
+        const PAGE_SIZE: usize = 500;
 
         let mut images = Vec::new();
         let mut cursor = None;
