@@ -99,9 +99,16 @@ async fn image_bytes(
 
     match state.service.image_bytes(&ImageId::new(id), size).await {
         Ok(image_bytes) => {
+            // `public` + `immutable` lets shared caches (the Cloudflare CDN)
+            // hold the bytes for a year: a given asset+size rendition never
+            // changes, tokens are deterministic per image id (stable cache
+            // keys), and the signed URL itself is the access credential.
             let mut response = Response::builder()
                 .status(StatusCode::OK)
-                .header(header::CACHE_CONTROL, "private, max-age=86400, immutable");
+                .header(
+                    header::CACHE_CONTROL,
+                    "public, max-age=31536000, immutable",
+                );
             if let Some(content_type) = &image_bytes.content_type {
                 response = response.header(header::CONTENT_TYPE, content_type);
             }
