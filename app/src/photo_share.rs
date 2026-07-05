@@ -18,7 +18,7 @@
 //! [`SsrMode::InOrder`]: leptos_router::SsrMode::InOrder
 
 use leptos::prelude::*;
-use leptos_meta::{Meta, Title};
+use leptos_meta::Title;
 use leptos_router::{
     hooks::use_params,
     params::{Params, ParamsError, ParamsMap},
@@ -72,6 +72,17 @@ impl Params for ShareParams {
 
 #[component]
 pub fn SharedPhotoPage() -> impl IntoView {
+    // noindex via response header rather than a <meta> tag: the islands
+    // router diffs pages with lockstep TreeWalkers, so a page-specific head
+    // element desyncs the walk and breaks client-side navigation.
+    #[cfg(feature = "ssr")]
+    if let Some(options) = use_context::<leptos_axum::ResponseOptions>() {
+        options.insert_header(
+            http::HeaderName::from_static("x-robots-tag"),
+            http::HeaderValue::from_static("noindex"),
+        );
+    }
+
     let params = use_params::<ShareParams>();
     let photos = Resource::new(
         move || {
@@ -83,10 +94,14 @@ pub fn SharedPhotoPage() -> impl IntoView {
         fetch_shared_photos,
     );
 
+    // Keep an element (not a component that renders to marker comments) as
+    // the first node of the route view: the islands router's replaceBranch
+    // skips the first node after a branch marker when counting nested
+    // branches, so leading with <Title/>'s comment markers desyncs the
+    // client-side navigation diff. Title is registered fine from in here.
     view! {
-        <Title text="shared photos | seanaye.ca" />
-        <Meta name="robots" content="noindex" />
         <section class="contents">
+            <Title text="shared photos | seanaye.ca" />
             <LayoutContent>
                 <style>
                     "#share-content:has(#share-grid) #share-loading { display: none; }"

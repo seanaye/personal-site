@@ -20,3 +20,4 @@ playwright/.cache/
 
 secrets.json
 result
+end2end/.browsers
