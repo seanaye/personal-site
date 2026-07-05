@@ -1,15 +1,16 @@
-//! Signed photo-sharing routes.
+//! Signed photo-sharing infrastructure.
 //!
-//! - `GET /photo/{token}`: `token` is a signed [`Claims::PhotoRange`]. Renders
-//!   an HTML page with every Immich photo taken in that date range, laid out
-//!   in the photogrid. Each image `src` is itself a signed URL.
+//! - [`shared_photos_fetcher`] backs the Leptos `/photo/:token` route: it is
+//!   injected into the Leptos context and invoked by the `fetch_shared_photos`
+//!   server function, resolving a signed [`Claims::PhotoRange`] token into
+//!   photogrid layout data with signed image URLs.
 //! - `GET /image/{token}?size={thumbnail|preview|fullsize}`: `token` is a
 //!   signed [`Claims::Image`]. Streams the raw image bytes from Immich at the
 //!   requested size (default `fullsize`).
 
-use std::{collections::HashMap, convert::Infallible, sync::Arc};
+use std::{collections::HashMap, sync::Arc};
 
-use app::components::PhotoGridComponent;
+use app::photo_share::ssr::SharedPhotosFetcher;
 use axum::{
     body::Body,
     extract::{Path, Query, State},
@@ -19,13 +20,11 @@ use axum::{
     Router,
 };
 use chrono::DateTime;
-use futures::StreamExt;
 use grid::Dimension;
 use images::{
     adapters::ImmichImageRepository, Image, ImageDateRange, ImageId, ImageService, ImageSize,
     ImageVariant,
 };
-use leptos::prelude::*;
 use photogrid::{PhotoLayoutData, SrcSet};
 use serde::Deserialize;
 use url::Url;
@@ -40,67 +39,41 @@ pub struct PhotoShareState {
     pub public_base_url: Option<Url>,
 }
 
-pub fn router(state: Arc<PhotoShareState>) -> Router {
+/// Router for the signed image byte endpoint.
+pub fn image_router(state: Arc<PhotoShareState>) -> Router {
     Router::new()
-        .route("/photo/{token}", get(photo_share_page))
         .route("/image/{token}", get(image_bytes))
         .with_state(state)
 }
 
-/// Streamed in two chunks: the document head plus a loading indicator goes
-/// out immediately (so the browser fetches CSS and paints while we talk to
-/// Immich), then the photogrid replaces the indicator once the data arrives.
-async fn photo_share_page(
-    State(state): State<Arc<PhotoShareState>>,
-    Path(token): Path<String>,
-    headers: HeaderMap,
-) -> Response {
-    let Ok(Claims::PhotoRange { after, before }) = state.signer.verify(&token) else {
-        return (StatusCode::FORBIDDEN, "invalid share token").into_response();
-    };
+/// Build the [`SharedPhotosFetcher`] that the Leptos share page consumes via
+/// context. Error strings are user-facing; details are logged instead.
+pub fn shared_photos_fetcher(state: Arc<PhotoShareState>) -> SharedPhotosFetcher {
+    SharedPhotosFetcher(Arc::new(move |token, headers| {
+        let state = state.clone();
+        Box::pin(async move {
+            let Ok(Claims::PhotoRange { after, before }) = state.signer.verify(&token) else {
+                return Err("invalid share token".to_owned());
+            };
 
-    let range = ImageDateRange::new(
-        after.and_then(|secs| DateTime::from_timestamp(secs, 0)),
-        before.and_then(|secs| DateTime::from_timestamp(secs, 0)),
-    );
+            let range = ImageDateRange::new(
+                after.and_then(|secs| DateTime::from_timestamp(secs, 0)),
+                before.and_then(|secs| DateTime::from_timestamp(secs, 0)),
+            );
 
-    let base_url = match base_url(&state, &headers) {
-        Ok(url) => url,
-        Err(response) => return response,
-    };
+            let base_url = base_url(&state, &headers)?;
 
-    let rest = async move {
-        // Headers are already sent by the time this resolves, so failures
-        // surface as an inline message rather than an error status.
-        let content = match state.service.images_taken_in(range).await {
-            Ok(images) => {
-                let data: Vec<PhotoLayoutData> = images
-                    .iter()
-                    .filter_map(|image| photo_layout_data(image, &base_url, &state.signer))
-                    .collect();
-                render_grid(data)
-            }
-            Err(error) => {
+            let images = state.service.images_taken_in(range).await.map_err(|error| {
                 log::error!("failed to fetch shared photos from Immich: {error}");
-                r#"<p class="font-mono p-6">failed to load photos. please try again.</p>"#
-                    .to_owned()
-            }
-        };
+                "failed to fetch photos".to_owned()
+            })?;
 
-        format!(
-            "<style>#share-loading{{display:none}}</style>{content}</main></body></html>"
-        )
-    };
-
-    let stream = futures::stream::once(std::future::ready(page_head()))
-        .chain(futures::stream::once(rest))
-        .map(Ok::<String, Infallible>);
-
-    Response::builder()
-        .status(StatusCode::OK)
-        .header(header::CONTENT_TYPE, "text/html; charset=utf-8")
-        .body(Body::from_stream(stream))
-        .expect("share page response should build")
+            Ok(images
+                .iter()
+                .filter_map(|image| photo_layout_data(image, &base_url, &state.signer))
+                .collect())
+        })
+    }))
 }
 
 #[derive(Debug, Default, Deserialize)]
@@ -146,7 +119,7 @@ async fn image_bytes(
 }
 
 /// Resolve the absolute base URL that signed image URLs should be joined onto.
-fn base_url(state: &PhotoShareState, headers: &HeaderMap) -> Result<Url, Response> {
+fn base_url(state: &PhotoShareState, headers: &HeaderMap) -> Result<Url, String> {
     if let Some(url) = &state.public_base_url {
         return Ok(url.clone());
     }
@@ -154,14 +127,13 @@ fn base_url(state: &PhotoShareState, headers: &HeaderMap) -> Result<Url, Respons
     let host = headers
         .get(header::HOST)
         .and_then(|value| value.to_str().ok())
-        .ok_or_else(|| (StatusCode::BAD_REQUEST, "missing host header").into_response())?;
+        .ok_or_else(|| "missing host header".to_owned())?;
     let scheme = headers
         .get("x-forwarded-proto")
         .and_then(|value| value.to_str().ok())
         .unwrap_or("http");
 
-    Url::parse(&format!("{scheme}://{host}/"))
-        .map_err(|_| (StatusCode::BAD_REQUEST, "invalid host header").into_response())
+    Url::parse(&format!("{scheme}://{host}/")).map_err(|_| "invalid host header".to_owned())
 }
 
 /// Map a domain [`Image`] onto the photogrid layout data, replacing direct
@@ -215,41 +187,4 @@ fn safe_dimensions(variant: &ImageVariant) -> Dimension {
     } else {
         Dimension { width, height }
     }
-}
-
-/// The start of the shared photo page, flushed before any data is fetched.
-/// Deliberately leaves `<main>`, `<body>` and `<html>` open; the second
-/// stream chunk closes them.
-fn page_head() -> String {
-    concat!(
-        "<!DOCTYPE html><html lang=\"en\"><head>",
-        "<meta charset=\"utf-8\">",
-        "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">",
-        "<meta name=\"robots\" content=\"noindex\">",
-        "<link rel=\"stylesheet\" href=\"/pkg/personal_site.css\">",
-        "<title>shared photos | seanaye.ca</title>",
-        "</head><body><main class=\"relative\">",
-        "<p id=\"share-loading\" class=\"font-mono p-6 animate-pulse\">",
-        "loading photos\u{2026}",
-        "</p>",
-    )
-    .to_owned()
-}
-
-/// Server-side render the photogrid fragment for the shared photo page.
-fn render_grid(data: Vec<PhotoLayoutData>) -> String {
-    let view = view! {
-        <div class="relative z-10 min-h-lvh pt-28 pr-4 pl-6 sm:pt-24 sm:pr-6 sm:pl-24">
-            {if data.is_empty() {
-                view! {
-                    <p class="font-mono">"No photos found for this share link."</p>
-                }
-                    .into_any()
-            } else {
-                view! { <PhotoGridComponent data=data /> }.into_any()
-            }}
-        </div>
-    };
-
-    view.to_html()
 }

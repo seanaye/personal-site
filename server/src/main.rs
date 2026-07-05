@@ -24,11 +24,11 @@ mod config;
 mod photo_share;
 mod sign;
 
-/// Build the signed photo-share routes from the app configuration.
+/// Build the photo-share state from the app configuration.
 ///
 /// Returns `None` (and logs why) when Immich is unreachable or the config
 /// still holds placeholder values (e.g. local dev without `secrets.json`).
-async fn photo_share_router(config: &Config) -> Option<Router> {
+async fn photo_share_state(config: &Config) -> Option<Arc<PhotoShareState>> {
     let photo_share = &config.photo_share;
     if photo_share.token_secret.is_empty() || photo_share.token_secret == "placeholder" {
         log::warn!("photo_share.token_secret is a placeholder; photo share routes disabled");
@@ -56,11 +56,11 @@ async fn photo_share_router(config: &Config) -> Option<Router> {
         return None;
     };
 
-    Some(photo_share::router(Arc::new(PhotoShareState {
+    Some(Arc::new(PhotoShareState {
         service: ImageService::new(repository),
         signer: TokenSigner::new(photo_share.token_secret.clone()),
         public_base_url: config.public_base_url.clone(),
-    })))
+    }))
 }
 
 async fn photo_data(r2: &R2Config) -> anyhow::Result<impl Iterator<Item = PhotoLayoutData>> {
@@ -136,12 +136,24 @@ async fn main() {
 
     let photos: Arc<[PhotoLayoutData]> = Arc::from(data);
 
+    let share_state = photo_share_state(&app_config.inner).await;
+    // Injected into the Leptos context so the `/photo/:token` route's server
+    // function can resolve share tokens (see `app::photo_share`).
+    let shared_photos_fetcher = share_state
+        .clone()
+        .map(photo_share::shared_photos_fetcher);
+
     // build our application with a route
     let mut app = Router::new()
         .leptos_routes_with_context(
             &leptos_options,
             routes,
-            move || provide_context(photos.clone()),
+            move || {
+                provide_context(photos.clone());
+                if let Some(fetcher) = shared_photos_fetcher.clone() {
+                    provide_context(fetcher);
+                }
+            },
             {
                 let leptos_options = leptos_options.clone();
                 move || shell(leptos_options.clone())
@@ -150,9 +162,9 @@ async fn main() {
         .fallback(leptos_axum::file_and_error_handler(shell))
         .with_state(leptos_options);
 
-    if let Some(share_router) = photo_share_router(&app_config.inner).await {
-        log::info!("photo share routes enabled at /photo/{{token}} and /image/{{token}}");
-        app = app.merge(share_router);
+    if let Some(share_state) = share_state {
+        log::info!("photo share enabled at /photo/{{token}} and /image/{{token}}");
+        app = app.merge(photo_share::image_router(share_state));
     }
 
     // run our app with hyper

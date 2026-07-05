@@ -12,6 +12,7 @@ use leptos_router::hooks::{use_params, use_query};
 use leptos_router::*;
 mod canvas_grid;
 pub mod components;
+pub mod photo_share;
 mod hooks;
 mod log_js_trait;
 #[cfg(all(feature = "hydrate", target_arch = "wasm32"))]
@@ -72,6 +73,10 @@ pub fn App() -> impl IntoView {
                     <Route path=StaticSegment("/blog") view=BlogPage />
                     <Route path=(StaticSegment("/blog"), ParamSegment("slug")) view=BlogPostPage />
                     <Route path=StaticSegment("/photo") view=PhotoPage />
+                    <Route
+                        path=(StaticSegment("/photo"), ParamSegment("token"))
+                        view=photo_share::SharedPhotoPage
+                    />
                     <Route path=StaticSegment("/search") view=SearchPage />
                 </Routes>
                 <NavBar />
