@@ -5,7 +5,7 @@
 //! client. Cursor pagination maps onto Immich's `/search/metadata` endpoint,
 //! whose `nextPage` token is treated as the opaque cursor.
 
-use std::future::Future;
+use std::{future::Future, num::NonZeroU64};
 
 use dumbpipe_client::{DumbpipeTunnel, EndpointTicket, TunnelConfig};
 use futures::{StreamExt, TryStreamExt};
@@ -77,22 +77,31 @@ impl ImmichImageRepository {
     }
 
     /// Convert an [`ImageCursor`] back into Immich's numeric page token.
-    fn cursor_to_page(cursor: Option<&ImageCursor>) -> Result<Option<f64>, ImmichRepositoryError> {
+    fn cursor_to_page(
+        cursor: Option<&ImageCursor>,
+    ) -> Result<Option<NonZeroU64>, ImmichRepositoryError> {
         match cursor {
             None => Ok(None),
             Some(cursor) => cursor
                 .as_str()
-                .parse::<f64>()
+                .parse::<NonZeroU64>()
                 .map(Some)
                 .map_err(|_| ImmichRepositoryError::InvalidCursor(cursor.clone())),
         }
     }
 
+    fn page_size(limit: usize) -> Result<NonZeroU64, ImmichRepositoryError> {
+        NonZeroU64::new(limit as u64).ok_or(ImmichRepositoryError::InvalidPageSize(limit))
+    }
+
     /// Run a `/search/metadata` query and map the result into an [`ImagePage`].
-    async fn search_page(&self, body: MetadataSearchDto) -> Result<ImagePage, ImmichRepositoryError> {
+    async fn search_page(
+        &self,
+        body: MetadataSearchDto,
+    ) -> Result<ImagePage, ImmichRepositoryError> {
         let response = self
             .client
-            .search_assets(&body)
+            .search_assets(None, None, &body)
             .await
             .map_err(ImmichRepositoryError::api)?
             .into_inner();
@@ -135,7 +144,7 @@ impl ImmichImageRepository {
         }
 
         Ok(Image::new(
-            ImageId::new(asset.id.clone()),
+            ImageId::new(asset.id.to_string()),
             vec![ImageVariant::new(url, dimensions)],
             metadata,
         )?)
@@ -155,7 +164,7 @@ impl ImageRepository for ImmichImageRepository {
 
             let body = MetadataSearchDto {
                 page,
-                size: Some(limit as f64),
+                size: Some(Self::page_size(limit)?),
                 type_: Some(AssetTypeEnum::Image),
                 with_exif: Some(true),
                 ..Default::default()
@@ -176,7 +185,7 @@ impl ImageRepository for ImmichImageRepository {
 
             let body = MetadataSearchDto {
                 page,
-                size: Some(limit as f64),
+                size: Some(Self::page_size(limit)?),
                 type_: Some(AssetTypeEnum::Image),
                 with_exif: Some(true),
                 taken_after: range.after,
@@ -242,6 +251,9 @@ pub enum ImmichRepositoryError {
 
     #[error("invalid pagination cursor `{0}`")]
     InvalidCursor(ImageCursor),
+
+    #[error("invalid page size `{0}`")]
+    InvalidPageSize(usize),
 
     #[error("image id `{0}` is not a valid UUID")]
     InvalidImageId(ImageId),
