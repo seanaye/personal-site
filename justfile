@@ -1,16 +1,47 @@
-# Run the development server
-server:
-    cargo leptos watch
+# Assemble static assets and run the Topcoat server.
+server: assets
+    cargo run -p server
 
-# Alias used while developing locally
+# Build everything before running the two development watchers.
+dev: assets dev-watch
+
+# Topcoat rebuilds SSR/Tailwind assets while Cargo rebuilds the custom elements.
 [parallel]
-dev: server
+dev-watch: dev-server dev-frontend
 
-# Build the deployable container image
+dev-server:
+    topcoat dev --package server
+
+dev-frontend:
+    cargo watch -w frontend -w liquid -w grid -- just frontend
+
+# Copy fixed public assets into the served site directory.
+site:
+    mkdir -p target/site/pkg
+    cp -r public/. target/site/
+
+# Build the custom elements and generate their ES-module loader.
+frontend: site
+    cargo build -p frontend --target wasm32-unknown-unknown
+    wasm-bindgen --target web --out-dir target/site/pkg --out-name frontend target/wasm32-unknown-unknown/debug/frontend.wasm
+
+# Build browser assets and Topcoat's Tailwind stylesheet/asset catalog.
+assets: site frontend
+    topcoat asset bundle --package server
+
+# Verify a complete local release build.
+build-local: site
+    cargo build --release -p server
+    cargo build --release -p frontend --target wasm32-unknown-unknown
+    wasm-bindgen --target web --out-dir target/site/pkg --out-name frontend target/wasm32-unknown-unknown/release/frontend.wasm
+    topcoat asset bundle --release --package server
+
+# Build the deployable container image.
 build:
     nix build .#personalSiteImg
 
 # Current commit SHA (supports jj workspaces and git)
+
 sha := `jj log -r @ --no-graph -T 'commit_id.short(7)' 2>/dev/null || git rev-parse --short HEAD`
 
 # Load the built image into Docker

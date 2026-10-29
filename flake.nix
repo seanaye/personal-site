@@ -78,20 +78,43 @@
             '';
           };
 
-        # Cargo sources plus files cargo-leptos/the app read at build time.
+        # Match the framework and CLI versions used to generate asset catalogs.
+        topcoatCli =
+          let
+            pname = "topcoat-cli";
+            version = "0.11.0";
+            src = pkgs.fetchCrate {
+              inherit pname version;
+              hash = "sha256-x9hEjO3Zx+o/onCwmIAD6uVJ+DJHaJV9KUBnDNFlS5U=";
+            };
+          in
+          craneLib.buildPackage {
+            inherit src;
+            cargoVendorDir = craneLib.vendorCargoDeps { inherit src; };
+            inherit pname version;
+            strictDeps = true;
+            nativeBuildInputs = [ pkgs.pkg-config ];
+            buildInputs = [ pkgs.openssl ];
+            doCheck = false;
+          };
+
+        # Use nixpkgs' Node-free Tailwind 4 package for hermetic builds.
+        tailwindCli = pkgs.tailwindcss_4;
+
+        # Cargo sources plus the static assets, shaders, and content read at build time.
         src =
           let
-            leptosFilter = path: type:
+            siteFilter = path: type:
               (builtins.match ".*/public(/.*)?" path != null) ||
-              (builtins.match ".*/style(/.*)?" path != null) ||
               (builtins.match ".*/blog(/.*)?" path != null) ||
               (builtins.match ".*/app/src/content(/.*)?" path != null) ||
               (builtins.match ".*/immich-sdk/openapi(/.*)?" path != null) ||
-              (builtins.match ".*/tailwind.config.js$" path != null) ||
+              (builtins.match ".*/app/tailwind.css$" path != null) ||
               (builtins.match ".*/data.json$" path != null) ||
-              (builtins.match ".*/app/src/.*\\.wgsl$" path != null);
+              (builtins.match ".*/frontend/src/.*\\.js$" path != null) ||
+              (builtins.match ".*/frontend/src/.*\\.wgsl$" path != null);
             srcFilter = path: type:
-              (leptosFilter path type) || (craneLib.filterCargoSources path type);
+              (siteFilter path type) || (craneLib.filterCargoSources path type);
           in
           pkgs.lib.cleanSourceWith {
             src = ./.;
@@ -108,6 +131,7 @@
           nativeBuildInputs = [ pkgs.pkg-config ];
           buildInputs = [ pkgs.openssl ];
           RUSTFLAGS = "--remap-path-prefix=${cargoVendorDir}=/cargo-vendor --remap-path-prefix=${rustToolchain}=/rust-toolchain";
+          TAILWIND_CLI = "${tailwindCli}/bin/tailwindcss";
         };
 
         buildArgs = commonArgs // {
@@ -139,21 +163,27 @@
           inherit cargoArtifacts;
           doInstallCargoArtifacts = false;
           nativeBuildInputs = commonArgs.nativeBuildInputs ++ [
-            pkgs.cargo-leptos
-            pkgs.tailwindcss
-            pkgs.dart-sass
-            pkgs.binaryen
+            topcoatCli
+            tailwindCli
             wasmBindgenCli
           ];
           buildPhaseCargoCommand = ''
-            cargo leptos build --release -vv
+            cargo build --release -p server
+            cargo build --release -p frontend --target wasm32-unknown-unknown
+
+            mkdir -p target/site/pkg
+            cp -r public/. target/site/
+            wasm-bindgen \
+              --target web \
+              --out-dir target/site/pkg \
+              --out-name frontend \
+              target/wasm32-unknown-unknown/release/frontend.wasm
+            topcoat asset bundle --release --package server
           '';
           installPhaseCommand = ''
             mkdir -p $out/bin $out/site
 
             for candidate in \
-              target/server/release/personal_site \
-              target/server/release/server \
               target/release/personal_site \
               target/release/server
             do
@@ -170,7 +200,7 @@
             fi
 
             cp -r target/site/. $out/site/
-            cp Cargo.toml $out/Cargo.toml
+            cp -r target/release/assets $out/bin/assets
           '';
           doCheck = false;
         });
@@ -207,18 +237,15 @@
           fakeRootCommands = ''
             mkdir -p ./app
             ln -s ${personalSite}/site ./app/site
-            ln -s ${personalSite}/Cargo.toml ./app/Cargo.toml
           '';
           config = {
             Cmd = [ "${runApp}" ];
             Env = [
               "RUST_LOG=info"
               "APP_ENVIRONMENT=production"
-              "LEPTOS_OUTPUT_NAME=personal_site"
-              "LEPTOS_SITE_ROOT=site"
-              "LEPTOS_SITE_PKG_DIR=pkg"
-              "LEPTOS_SITE_ADDR=0.0.0.0:8080"
-              "LEPTOS_RELOAD_PORT=3001"
+              "SITE_ROOT=site"
+              "HOST=0.0.0.0"
+              "PORT=8080"
             ];
             ExposedPorts = { "8080/tcp" = { }; };
           };
@@ -240,23 +267,21 @@
             flyctl
             just
             just-lsp
-            cargo-leptos
             cargo-nextest
             cargo-watch
             cargo-info
             cargo-udeps
             cargo-deny
             nix-fast-build.packages.${system}.default
-            tailwindcss
-            dart-sass
-            binaryen
+            topcoatCli
+            tailwindCli
             wasmBindgenCli
-            nodejs
             pkg-config
             openssl
             taplo
             sops
           ];
+          TAILWIND_CLI = "${tailwindCli}/bin/tailwindcss";
         };
       }
     );

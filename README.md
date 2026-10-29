@@ -1,101 +1,87 @@
-<picture>
-    <source srcset="https://raw.githubusercontent.com/leptos-rs/leptos/main/docs/logos/Leptos_logo_Solid_White.svg" media="(prefers-color-scheme: dark)">
-    <img src="https://raw.githubusercontent.com/leptos-rs/leptos/main/docs/logos/Leptos_logo_RGB.svg" alt="Leptos Logo">
-</picture>
+# seanaye.ca
 
-# Leptos Axum Starter Template
+Sean Aye's personal site, built with **Topcoat 0.11**, server-rendered Rust components, Tailwind CSS, and WASM web components.
 
-This is a template for use with the [Leptos](https://github.com/leptos-rs/leptos) web framework and the [cargo-leptos](https://github.com/akesson/cargo-leptos) tool using [Axum](https://github.com/tokio-rs/axum).
+## Architecture
 
-## Creating your template repo
+- `app/` — Topcoat pages, layouts, components, Markdown rendering, photo grids, and route setup.
+- `server/` — HTTP server, configuration, signed photo sharing, streaming image responses, and static assets.
+- `frontend/` — `wasm-bindgen` browser controllers and the WGPU droplet renderer.
+- `liquid/` — palette generation, color calculations, and liquid event types shared by SSR and WASM.
+- `grid/`, `photogrid/`, `photo-search/` — responsive photo layout and filtering.
+- `images/`, `immich-sdk/`, `dumbpipe-client/` — Immich photo integration.
 
-If you don't have `cargo-leptos` installed you can install it with
+The browser registers these light-DOM custom elements over server-rendered markup:
 
-```bash
-cargo install cargo-leptos
+- `<liquid-canvas>` owns the WGPU canvas, animation, resizing, and droplet input.
+- `<poline-background>` updates static page backgrounds.
+- `<poline-palette>` updates the color swatches along the left edge.
+- `<hue-slider>` synchronizes the hue control, CSS variables, and local storage.
+
+The WGSL simulation and display shaders remain in `frontend/src/shaders/`. Topcoat's Cargo build integration compiles Tailwind 4.3.3 with CSS-native configuration and serves the result as a content-hashed asset.
+
+## Development
+
+Enter the Nix development shell:
+
+```sh
+nix develop
 ```
 
-Then run
-```bash
-cargo leptos new --git https://github.com/leptos-rs/start-axum-workspace/
+Then start the watched server and asset builds:
+
+```sh
+just dev
 ```
 
-to generate a new project template.
+Open <http://127.0.0.1:3000>. For a single unwatched run, use `just server`. `just dev` runs `topcoat dev` for SSR/Tailwind alongside a Cargo watcher for the custom-element WASM.
 
-```bash
-cd {projectname}
+Useful individual commands:
+
+```sh
+just frontend   # WASM + wasm-bindgen -> target/site/pkg/
+just assets     # Topcoat Tailwind/asset catalog, WASM, and public assets
+just server     # Build assets and run the Topcoat server
 ```
 
-to go to your newly created project.  
-Feel free to explore the project structure, but the best place to start with your application code is in `src/app.rs`.  
-Addtionally, Cargo.toml may need updating as new versions of the dependencies are released, especially if things are not working after a `cargo update`.
+The server reads `SITE_ROOT` (default `target/site`), `HOST` (default `127.0.0.1`), and `PORT` (default `3000`). Local secrets are loaded from `secrets.example.json` and the gitignored `secrets.json`; see `just decrypt-secrets` when a fresh local file is needed.
 
-### Islands support
+Without Nix, install a Rust nightly new enough for Topcoat 0.11, the `wasm32-unknown-unknown` target, `wasm-bindgen-cli` 0.2.126, `topcoat-cli` 0.11, `cargo-watch`, and `just`. Topcoat downloads and caches the pinned Tailwind CLI automatically; no separate Tailwind installation is needed.
 
-Note that for islands to work correctly, you need to have a `use app;` in your frontend `lib.rs` otherwise rustc / wasm_bindgen gets confused.
-To prevent clippy from complaining, at the top of the `frontend/lib.rs` file place:
-```rust
-#[allow(clippy::single_component_path_imports)]
-#[allow(unused_imports)]
-use app;
+## Routes
+
+- `/` — bio and interactive liquid canvas
+- `/blog` and `/blog/{slug}` — blog index and Markdown posts (`?draft=true` includes drafts)
+- `/photo` — photography grid
+- `/search?a=...&b=...&r=...` — filtered photo grid
+- `/photo/{token}` — signed shared-photo page
+- `/image/{token}?size=thumbnail|preview|fullsize` — signed streaming image bytes
+
+## Verification
+
+```sh
+cargo check --workspace
+cargo check -p frontend --target wasm32-unknown-unknown
+cargo nextest run --workspace
+just build-local
 ```
 
-## Running your project
+## Build and deployment
 
-```bash
-cargo leptos watch
+Build the release server and static site locally:
+
+```sh
+just build-local
 ```
 
-## Installing Additional Tools
+The deployable files are `target/release/server`, `target/release/assets/`, and `target/site/`. Keep `assets/` beside the server binary so Topcoat can load its asset catalog. Set `SITE_ROOT=site`, `HOST=0.0.0.0`, and `PORT=8080` when running the binary from a directory containing `site/`.
 
-By default, `cargo-leptos` uses `nightly` Rust, `cargo-generate`, and `sass`. If you run into any trouble, you may need to install one or more of these tools.
+The canonical container build uses Nix:
 
-1. `rustup toolchain install nightly --allow-downgrade` - make sure you have Rust nightly
-2. `rustup default nightly` - setup nightly as default, or you can use rust-toolchain file later on
-3. `rustup target add wasm32-unknown-unknown` - add the ability to compile Rust to WebAssembly
-4. `cargo install cargo-generate` - install `cargo-generate` binary (should be installed automatically in future)
-5. `npm install -g sass` - install `dart-sass` (should be optional in future
-
-## Compiling for Release
-```bash
-cargo leptos build --release
+```sh
+just build
+just deploy
 ```
 
-Will generate your server binary in target/server/release and your site package in target/site
+The Nix image decrypts `secrets.enc.json` at startup using `SOPS_AGE_KEY`, then runs the Topcoat server on port 8080.
 
-## Testing Your Project
-```bash
-cargo leptos end-to-end
-```
-
-```bash
-cargo leptos end-to-end --release
-```
-
-Cargo-leptos uses Playwright as the end-to-end test tool.  
-Tests are located in end2end/tests directory.
-
-## Executing a Server on a Remote Machine Without the Toolchain
-After running a `cargo leptos build --release` the minimum files needed are:
-
-1. The server binary located in `target/server/release`
-2. The `site` directory and all files within located in `target/site`
-
-Copy these files to your remote server. The directory structure should be:
-```text
-start-axum
-site/
-```
-Set the following enviornment variables (updating for your project as needed):
-```text
-LEPTOS_OUTPUT_NAME="start-axum"
-LEPTOS_SITE_ROOT="site"
-LEPTOS_SITE_PKG_DIR="pkg"
-LEPTOS_SITE_ADDR="127.0.0.1:3000"
-LEPTOS_RELOAD_PORT="3001"
-```
-Finally, run the server binary.
-
-## Licensing
-
-This project is licensed under the MIT License. See [LICENSE](LICENSE) for details.

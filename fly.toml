@@ -10,11 +10,9 @@ primary_region = 'yyz'
   strategy = 'canary'
 
 [env]
-  LEPTOS_OUTPUT_NAME = 'personal_site'
-  LEPTOS_SITE_ROOT = 'site'
-  LEPTOS_SITE_PKG_DIR = 'pkg'
-  LEPTOS_SITE_ADDR = '0.0.0.0:8080'
-  LEPTOS_RELOAD_PORT = '3001'
+  SITE_ROOT = 'site'
+  HOST = '0.0.0.0'
+  PORT = '8080'
   RUST_LOG = 'info'
 
 [http_service]

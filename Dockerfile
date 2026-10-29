@@ -1,44 +1,42 @@
-# Get started with a build env with Rust nightly
-FROM rustlang/rust:nightly-bullseye as builder
+FROM rustlang/rust:nightly-bookworm AS builder
 
-# If you’re using stable, use this instead
-# FROM rust:1.70-bullseye as builder
-
-# Install cargo-binstall, which makes it easier to install other
-# cargo extensions like cargo-leptos
-RUN wget https://github.com/cargo-bins/cargo-binstall/releases/latest/download/cargo-binstall-x86_64-unknown-linux-musl.tgz
-RUN tar -xvf cargo-binstall-x86_64-unknown-linux-musl.tgz
-RUN cp cargo-binstall /usr/local/cargo/bin
-
-# Install cargo-leptos
-RUN cargo binstall cargo-leptos -y
-#RUN cargo install cargo-leptos
-
-# Add the WASM target
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends pkg-config libssl-dev \
+    && rm -rf /var/lib/apt/lists/*
+RUN cargo install wasm-bindgen-cli --version 0.2.126 --locked
+RUN cargo install topcoat-cli --version 0.11.0 --locked
 RUN rustup target add wasm32-unknown-unknown
 
-# Make an /app dir, which everything will eventually live in
-RUN mkdir -p /app
 WORKDIR /app
 COPY . .
 
-# Build the app
-RUN cargo leptos build --release -vv
+RUN mkdir -p target/site/pkg \
+    && cp -r public/. target/site/ \
+    && cargo build --release -p server \
+    && cargo build --release -p frontend --target wasm32-unknown-unknown \
+    && wasm-bindgen \
+      --target web \
+      --out-dir target/site/pkg \
+      --out-name frontend \
+      target/wasm32-unknown-unknown/release/frontend.wasm \
+    && topcoat asset bundle --release --package server
 
-FROM rustlang/rust:nightly-bullseye as runner
-# Copy the server binary to the /app directory
-COPY --from=builder /app/target/release/server /app/
-# /target/site contains our JS/WASM/CSS, etc.
+FROM debian:bookworm-slim AS runner
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ca-certificates libssl3 \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --from=builder /app/target/release/server /app/server
 COPY --from=builder /app/target/site /app/site
-# Copy Cargo.toml if it’s needed at runtime
-COPY --from=builder /app/Cargo.toml /app/
+COPY --from=builder /app/target/release/assets /app/assets
 WORKDIR /app
 
-# Set any required env variables and
 ENV RUST_LOG="info"
 ENV APP_ENVIRONMENT="production"
-ENV LEPTOS_SITE_ADDR="0.0.0.0:8080"
-ENV LEPTOS_SITE_ROOT="site"
+ENV SITE_ROOT="site"
+ENV HOST="0.0.0.0"
+ENV PORT="8080"
 EXPOSE 8080
-# Run the server
+
+# Provide /app/secrets.json as a runtime secret or mount.
 CMD ["/app/server"]
