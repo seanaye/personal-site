@@ -91,6 +91,7 @@ dependencies = [
  "pulldown-cmark",
  "rand 0.8.6",
  "serde",
+ "tokio",
  "toml 0.8.23",
  "topcoat",
  "url",

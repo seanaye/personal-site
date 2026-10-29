@@ -16,7 +16,7 @@ The browser registers these light-DOM custom elements over server-rendered marku
 - `<liquid-canvas>` owns the WGPU canvas, animation, resizing, and droplet input.
 - `<poline-background>` updates static page backgrounds.
 - `<poline-palette>` updates the color swatches along the left edge.
-- `<hue-slider>` synchronizes the hue control, CSS variables, and local storage.
+- `<hue-slider>` synchronizes the hue control, CSS variables, local storage, and a site-wide `liquid-hue-v2` cookie. SSR reads the cookie to render the selected background and palette before WASM loads.
 
 The WGSL simulation and display shaders remain in `frontend/src/shaders/`. Topcoat's Cargo build integration compiles Tailwind 4.3.3 with CSS-native configuration and serves the result as a content-hashed asset.
 

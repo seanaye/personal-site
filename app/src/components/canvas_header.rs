@@ -4,10 +4,11 @@ use liquid::{
 };
 use topcoat::{
     Result,
+    context::Cx,
     view::{Child, View, component, view},
 };
 
-use crate::initial_palette;
+use crate::hue::{initial_hue, initial_palette};
 
 fn poline_text_style() -> &'static str {
     "color: var(--poline-text-color, white); accent-color: var(--poline-text-color, white); text-shadow: 0 1px 2px var(--poline-text-shadow, rgba(0, 0, 0, 0.55));"
@@ -19,7 +20,7 @@ pub async fn poline_text(#[default] child: Child<'_>) -> Result<impl View> {
 }
 
 #[component]
-pub async fn nav_bar() -> Result<impl View> {
+pub async fn nav_bar(cx: &Cx) -> Result<impl View> {
     Ok(view! {
         <nav
             aria-label="Primary"
@@ -36,7 +37,7 @@ pub async fn nav_bar() -> Result<impl View> {
                     type="range"
                     min="0"
                     max="360"
-                    value="0"
+                    value=(initial_hue(cx))
                     autocomplete="off"
                     aria-label="Liquid hue"
                     class="w-24 appearance-none bg-transparent accent-current [color:inherit] [&::-moz-range-thumb]:h-4 [&::-moz-range-thumb]:w-4 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:bg-current [&::-moz-range-track]:h-1 [&::-moz-range-track]:rounded-full [&::-moz-range-track]:bg-current [&::-webkit-slider-runnable-track]:h-1 [&::-webkit-slider-runnable-track]:rounded-full [&::-webkit-slider-runnable-track]:bg-current [&::-webkit-slider-thumb]:-mt-1.5 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:[-webkit-appearance:none] [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-current sm:w-40"
@@ -47,8 +48,8 @@ pub async fn nav_bar() -> Result<impl View> {
 }
 
 #[component]
-pub async fn static_canvas(#[default] child: Child<'_>) -> Result<impl View> {
-    let background = canvas_background_style(&initial_palette());
+pub async fn static_canvas(cx: &Cx, #[default] child: Child<'_>) -> Result<impl View> {
+    let background = canvas_background_style(&initial_palette(cx));
 
     Ok(view! {
         <div class="relative min-h-lvh overflow-hidden">
@@ -62,7 +63,7 @@ pub async fn static_canvas(#[default] child: Child<'_>) -> Result<impl View> {
 pub async fn liquid_canvas(#[default] child: Child<'_>) -> Result<impl View> {
     Ok(view! {
         <div class="relative min-h-lvh overflow-hidden">
-            <liquid-canvas class="absolute inset-0 w-full">
+            <liquid-canvas class="absolute inset-0 w-full" style="background: var(--poline-background-color);">
                 <canvas width="0" height="0" class="absolute inset-0 h-full w-full"></canvas>
             </liquid-canvas>
             (child)
@@ -71,8 +72,8 @@ pub async fn liquid_canvas(#[default] child: Child<'_>) -> Result<impl View> {
 }
 
 #[component]
-pub async fn debug_poline() -> Result<impl View> {
-    let palette = initial_palette();
+pub async fn debug_poline(cx: &Cx) -> Result<impl View> {
+    let palette = initial_palette(cx);
 
     Ok(view! {
         <poline-palette class="pointer-events-none fixed left-0 top-0 z-40 h-lvh flex flex-wrap flex-col">

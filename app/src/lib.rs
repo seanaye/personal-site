@@ -1,6 +1,5 @@
 use std::sync::Arc;
 
-use liquid::{color::palette_for_slider, palette::PolineManagerImpl};
 use photo_search::SearchFilter;
 use photogrid::PhotoLayoutData;
 use pulldown_cmark::{Options, Parser, html};
@@ -9,14 +8,15 @@ use topcoat::{
     Result,
     context::{Cx, app_context},
     router::{
-        Router, RouterBuilder, Slot, StatusCode, error::NotFoundError, layout, not_found, page,
-        path_param, query_params, request::uri,
+        HeaderValue, Router, RouterBuilder, Slot, StatusCode, error::NotFoundError, header, layout,
+        not_found, page, path_param, query_params, request::uri,
     },
     tailwind,
     view::{Child, Unescaped, View, component, error_boundary, view},
 };
 
 pub mod components;
+mod hue;
 pub mod photo_share;
 mod style;
 
@@ -57,8 +57,11 @@ async fn root_layout(cx: &Cx, slot: Slot<'_>) -> Result<impl View> {
     };
 
     Ok(view! {
+        // HTML now depends on a browser preference; shared caches must not
+        // serve one visitor's palette to another.
+        ((header::CACHE_CONTROL, HeaderValue::from_static("private, no-cache")))
         <!DOCTYPE html>
-        <html lang="en">
+        <html lang="en" style=(hue::document_palette_style(cx))>
             <head>
                 <meta charset="utf-8">
                 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -430,9 +433,4 @@ async fn mail_icon() -> Result<impl View> {
             ></path>
         </svg>
     })
-}
-
-/// Exposed for the small browser controllers and for deterministic SSR tests.
-pub fn initial_palette() -> PolineManagerImpl {
-    palette_for_slider(0.0)
 }

@@ -1,14 +1,15 @@
+use std::cell::Cell;
+
 use gloo::events::EventListener;
 use liquid::{
     color::{
-        canvas_background_color, canvas_background_style, code_block_background_color,
-        most_contrasting_palette_color, palette_for_slider, readable_palette_color,
-        relative_luminance, rgb_css, HUE_CHANGE_EVENT, HUE_STORAGE_KEY,
+        canvas_background_style, hue_from_cookie, palette_css_properties, palette_for_slider,
+        parse_slider_hue, rgb_css, HUE_CHANGE_EVENT, HUE_COOKIE_NAME, HUE_STORAGE_KEY,
     },
     palette::PolineManager,
 };
 use wasm_bindgen::{closure::Closure, prelude::wasm_bindgen, JsCast, JsValue};
-use web_sys::{HtmlElement, HtmlInputElement};
+use web_sys::{HtmlDocument, HtmlElement, HtmlInputElement};
 
 use crate::liquid_canvas::LiquidCanvas;
 
@@ -38,11 +39,32 @@ pub fn register() {
     );
 }
 
+thread_local! {
+    // Keep interactions working even when the browser blocks persistence.
+    static CURRENT_HUE: Cell<Option<f64>> = const { Cell::new(None) };
+}
+
+fn html_document() -> Option<HtmlDocument> {
+    web_sys::window()?
+        .document()?
+        .dyn_into::<HtmlDocument>()
+        .ok()
+}
+
 pub(crate) fn stored_hue() -> Option<f64> {
-    web_sys::window()
-        .and_then(|window| window.local_storage().ok().flatten())
-        .and_then(|storage| storage.get_item(HUE_STORAGE_KEY).ok().flatten())
-        .and_then(|value| value.parse().ok())
+    CURRENT_HUE.get().or_else(|| {
+        // Prefer the cookie used by SSR to avoid a stale local-storage value
+        // changing the palette immediately after navigation.
+        html_document()
+            .and_then(|document| document.cookie().ok())
+            .and_then(|cookies| hue_from_cookie(&cookies))
+            .or_else(|| {
+                web_sys::window()
+                    .and_then(|window| window.local_storage().ok().flatten())
+                    .and_then(|storage| storage.get_item(HUE_STORAGE_KEY).ok().flatten())
+                    .and_then(|value| parse_slider_hue(&value))
+            })
+    })
 }
 
 fn dispatch_hue_change() {
@@ -55,27 +77,27 @@ fn dispatch_hue_change() {
 }
 
 fn store_hue(value: f64) {
+    CURRENT_HUE.set(Some(value));
     if let Some(storage) =
         web_sys::window().and_then(|window| window.local_storage().ok().flatten())
     {
         _ = storage.set_item(HUE_STORAGE_KEY, &value.to_string());
+    }
+    if let Some(document) = html_document() {
+        let secure = web_sys::window()
+            .and_then(|window| window.location().protocol().ok())
+            .is_some_and(|protocol| protocol == "https:");
+        let secure = if secure { "; Secure" } else { "" };
+        // A non-sensitive preference, intentionally readable/writable by JS.
+        _ = document.set_cookie(&format!(
+            "{HUE_COOKIE_NAME}={value}; Path=/; Max-Age=31536000; SameSite=Lax{secure}"
+        ));
     }
     dispatch_hue_change();
 }
 
 fn apply_document_palette(hue: f64) {
     let palette = palette_for_slider(hue);
-    let colors = palette.colors();
-    let background_color = canvas_background_color(colors);
-    let text_color = readable_palette_color(colors);
-    let code_background_color = code_block_background_color(colors);
-    let code_text_color =
-        most_contrasting_palette_color(colors, code_background_color).unwrap_or(background_color);
-    let shadow_color = if relative_luminance(text_color) > 0.5 {
-        "rgba(0, 0, 0, 0.55)"
-    } else {
-        "rgba(255, 255, 255, 0.55)"
-    };
 
     let Some(root) = web_sys::window()
         .and_then(|window| window.document())
@@ -86,14 +108,9 @@ fn apply_document_palette(hue: f64) {
     };
 
     let style = root.style();
-    _ = style.set_property("--poline-background-color", &rgb_css(background_color));
-    _ = style.set_property("--poline-text-color", &rgb_css(text_color));
-    _ = style.set_property("--poline-text-shadow", shadow_color);
-    _ = style.set_property(
-        "--poline-code-background-color",
-        &rgb_css(code_background_color),
-    );
-    _ = style.set_property("--poline-code-text-color", &rgb_css(code_text_color));
+    for (name, value) in palette_css_properties(&palette) {
+        _ = style.set_property(name, &value);
+    }
 }
 
 #[wasm_bindgen]
@@ -129,7 +146,9 @@ impl HueSlider {
             return;
         };
 
-        let hue = stored_hue().unwrap_or(0.0);
+        let hue = stored_hue()
+            .or_else(|| parse_slider_hue(&input.value()))
+            .unwrap_or(0.0);
         input.set_value(&hue.to_string());
         apply_document_palette(hue);
 
@@ -140,7 +159,7 @@ impl HueSlider {
             else {
                 return;
             };
-            let Ok(hue) = input.value().parse::<f64>() else {
+            let Some(hue) = parse_slider_hue(&input.value()) else {
                 return;
             };
             apply_document_palette(hue);
@@ -148,8 +167,9 @@ impl HueSlider {
         });
         self.listeners.push(listener);
 
-        // Synchronize all other custom elements after they have upgraded.
-        dispatch_hue_change();
+        // Migrate existing local-storage preferences and synchronize the
+        // other elements. Future page requests can now render this hue.
+        store_hue(hue);
     }
 
     pub fn disconnected(&mut self) {

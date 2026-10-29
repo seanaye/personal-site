@@ -2,7 +2,26 @@ use crate::palette::{PolineManager, PolineManagerImpl};
 
 pub const DEFAULT_HUE_OFFSET_DEGREES: f64 = 171.0;
 pub const HUE_STORAGE_KEY: &str = "liquid-hue-v2";
+pub const HUE_COOKIE_NAME: &str = "liquid-hue-v2";
 pub const HUE_CHANGE_EVENT: &str = "liquid-hue-change";
+
+/// Only accept finite values within the range input's bounds, including zero.
+pub fn parse_slider_hue(value: &str) -> Option<f64> {
+    value
+        .parse::<f64>()
+        .ok()
+        .filter(|value| value.is_finite() && (0.0..=360.0).contains(value))
+}
+
+/// Shared by the request-header reader and `document.cookie` reader.
+pub fn hue_from_cookie(cookies: &str) -> Option<f64> {
+    cookies.split(';').find_map(|cookie| {
+        let (name, value) = cookie.trim().split_once('=')?;
+        (name == HUE_COOKIE_NAME)
+            .then(|| parse_slider_hue(value))
+            .flatten()
+    })
+}
 
 fn srgb_channel_to_linear(channel: u8) -> f64 {
     let channel = channel as f64 / 255.0;
@@ -88,9 +107,62 @@ pub fn canvas_background_style(poline: &PolineManagerImpl) -> String {
     )
 }
 
+/// Keep the initial SSR colors and subsequent browser updates identical.
+pub fn palette_css_properties(poline: &PolineManagerImpl) -> [(&'static str, String); 5] {
+    let colors = poline.colors();
+    let background = canvas_background_color(colors);
+    let text = readable_palette_color(colors);
+    let code_background = code_block_background_color(colors);
+    let code_text = most_contrasting_palette_color(colors, code_background).unwrap_or(background);
+    let shadow = if relative_luminance(text) > 0.5 {
+        "rgba(0, 0, 0, 0.55)"
+    } else {
+        "rgba(255, 255, 255, 0.55)"
+    };
+
+    [
+        ("--poline-background-color", rgb_css(background)),
+        ("--poline-text-color", rgb_css(text)),
+        ("--poline-text-shadow", shadow.to_owned()),
+        ("--poline-code-background-color", rgb_css(code_background)),
+        ("--poline-code-text-color", rgb_css(code_text)),
+    ]
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn cookie_selects_the_exact_preference_name() {
+        assert_eq!(
+            hue_from_cookie("other=1; liquid-hue-v2=171; more=2"),
+            Some(171.0)
+        );
+        assert_eq!(hue_from_cookie("liquid-hue-v2=0"), Some(0.0));
+        assert_eq!(hue_from_cookie("liquid-hue-v2=360"), Some(360.0));
+        assert_eq!(hue_from_cookie("liquid-hue-v2=12.5"), Some(12.5));
+        assert_eq!(hue_from_cookie("prefix-liquid-hue-v2=180"), None);
+        assert_eq!(hue_from_cookie(""), None);
+    }
+
+    #[test]
+    fn rejects_invalid_hue_values() {
+        for value in [
+            "",
+            "NaN",
+            "inf",
+            "-inf",
+            "1e999",
+            "-1",
+            "361",
+            "red",
+            "0; color:red",
+        ] {
+            assert_eq!(parse_slider_hue(value), None, "value: {value}");
+        }
+        assert_eq!(hue_from_cookie("liquid-hue-v2=NaN; other=180"), None);
+    }
 
     #[test]
     fn slider_palette_uses_the_original_default_offset() {
