@@ -13,7 +13,7 @@ use liquid::{
 use wasm_bindgen::{prelude::wasm_bindgen, JsCast};
 use web_sys::{HtmlCanvasElement, HtmlElement, MouseEvent};
 
-use crate::{elements::stored_hue, wgpu_renderer::WgpuLiquidRenderer};
+use crate::{elements::current_slider_value, wgpu_renderer::WgpuLiquidRenderer};
 
 const POINTER_MOVE_DROP_STRIDE: u8 = 4;
 
@@ -60,7 +60,7 @@ impl LiquidCanvas {
         let document_hidden = element
             .owner_document()
             .is_some_and(|document| document.hidden());
-        let palette = palette_for_slider(stored_hue().unwrap_or(0.0));
+        let palette = palette_for_slider(current_slider_value().unwrap_or(0.0));
 
         Self {
             inner: Rc::new(RefCell::new(Inner {
@@ -128,7 +128,7 @@ impl LiquidCanvas {
                 state.canvas.clone(),
                 state.width,
                 state.height,
-                palette_for_slider(stored_hue().unwrap_or(0.0)),
+                palette_for_slider(current_slider_value().unwrap_or(0.0)),
                 state.generation,
             )
         };
@@ -219,7 +219,8 @@ impl LiquidCanvas {
 
         let hue_inner = inner.clone();
         let hue = EventListener::new(&window, HUE_CHANGE_EVENT, move |_| {
-            hue_inner.borrow_mut().palette = palette_for_slider(stored_hue().unwrap_or(0.0));
+            hue_inner.borrow_mut().palette =
+                palette_for_slider(current_slider_value().unwrap_or(0.0));
         });
 
         let visibility_inner = inner.clone();

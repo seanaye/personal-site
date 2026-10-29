@@ -1,12 +1,12 @@
 use crate::palette::{PolineManager, PolineManagerImpl};
 
 pub const DEFAULT_HUE_OFFSET_DEGREES: f64 = 171.0;
-pub const HUE_STORAGE_KEY: &str = "liquid-hue-v2";
-pub const HUE_COOKIE_NAME: &str = "liquid-hue-v2";
+/// Stores the raw range-input value (0–360), not the offset Poline hue.
+pub const SLIDER_COOKIE_NAME: &str = "liquid-hue-v2";
 pub const HUE_CHANGE_EVENT: &str = "liquid-hue-change";
 
 /// Only accept finite values within the range input's bounds, including zero.
-pub fn parse_slider_hue(value: &str) -> Option<f64> {
+pub fn parse_slider_value(value: &str) -> Option<f64> {
     value
         .parse::<f64>()
         .ok()
@@ -14,11 +14,11 @@ pub fn parse_slider_hue(value: &str) -> Option<f64> {
 }
 
 /// Shared by the request-header reader and `document.cookie` reader.
-pub fn hue_from_cookie(cookies: &str) -> Option<f64> {
+pub fn slider_value_from_cookie(cookies: &str) -> Option<f64> {
     cookies.split(';').find_map(|cookie| {
         let (name, value) = cookie.trim().split_once('=')?;
-        (name == HUE_COOKIE_NAME)
-            .then(|| parse_slider_hue(value))
+        (name == SLIDER_COOKIE_NAME)
+            .then(|| parse_slider_value(value))
             .flatten()
     })
 }
@@ -96,8 +96,9 @@ pub fn rgb_css([r, g, b]: [u8; 3]) -> String {
     format!("rgb({r}, {g}, {b})")
 }
 
-pub fn palette_for_slider(hue: f64) -> PolineManagerImpl {
-    PolineManagerImpl::new(hue + DEFAULT_HUE_OFFSET_DEGREES)
+/// Convert the saved slider position to a palette, applying the offset once.
+pub fn palette_for_slider(slider_value: f64) -> PolineManagerImpl {
+    PolineManagerImpl::new(slider_value + DEFAULT_HUE_OFFSET_DEGREES)
 }
 
 pub fn canvas_background_style(poline: &PolineManagerImpl) -> String {
@@ -136,18 +137,18 @@ mod tests {
     #[test]
     fn cookie_selects_the_exact_preference_name() {
         assert_eq!(
-            hue_from_cookie("other=1; liquid-hue-v2=171; more=2"),
+            slider_value_from_cookie("other=1; liquid-hue-v2=171; more=2"),
             Some(171.0)
         );
-        assert_eq!(hue_from_cookie("liquid-hue-v2=0"), Some(0.0));
-        assert_eq!(hue_from_cookie("liquid-hue-v2=360"), Some(360.0));
-        assert_eq!(hue_from_cookie("liquid-hue-v2=12.5"), Some(12.5));
-        assert_eq!(hue_from_cookie("prefix-liquid-hue-v2=180"), None);
-        assert_eq!(hue_from_cookie(""), None);
+        assert_eq!(slider_value_from_cookie("liquid-hue-v2=0"), Some(0.0));
+        assert_eq!(slider_value_from_cookie("liquid-hue-v2=360"), Some(360.0));
+        assert_eq!(slider_value_from_cookie("liquid-hue-v2=12.5"), Some(12.5));
+        assert_eq!(slider_value_from_cookie("prefix-liquid-hue-v2=180"), None);
+        assert_eq!(slider_value_from_cookie(""), None);
     }
 
     #[test]
-    fn rejects_invalid_hue_values() {
+    fn rejects_invalid_slider_values() {
         for value in [
             "",
             "NaN",
@@ -159,9 +160,20 @@ mod tests {
             "red",
             "0; color:red",
         ] {
-            assert_eq!(parse_slider_hue(value), None, "value: {value}");
+            assert_eq!(parse_slider_value(value), None, "value: {value}");
         }
-        assert_eq!(hue_from_cookie("liquid-hue-v2=NaN; other=180"), None);
+        assert_eq!(
+            slider_value_from_cookie("liquid-hue-v2=NaN; other=180"),
+            None
+        );
+    }
+
+    #[test]
+    fn cookie_value_is_the_slider_position_not_the_offset_hue() {
+        let slider_value = slider_value_from_cookie("liquid-hue-v2=90").unwrap();
+        assert_eq!(slider_value, 90.0);
+        let palette = palette_for_slider(slider_value);
+        assert_eq!(*palette.abs_hue(), 90.0 + DEFAULT_HUE_OFFSET_DEGREES);
     }
 
     #[test]

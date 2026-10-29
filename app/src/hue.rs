@@ -1,5 +1,5 @@
 use liquid::{
-    color::{hue_from_cookie, palette_css_properties, palette_for_slider},
+    color::{palette_css_properties, palette_for_slider, slider_value_from_cookie},
     palette::PolineManagerImpl,
 };
 use topcoat::{
@@ -7,17 +7,17 @@ use topcoat::{
     router::{header::COOKIE, request::headers},
 };
 
-pub(crate) fn initial_hue(cx: &Cx) -> f64 {
+pub(crate) fn initial_slider_value(cx: &Cx) -> f64 {
     headers(cx)
         .get_all(COOKIE)
         .iter()
         .filter_map(|header| header.to_str().ok())
-        .find_map(hue_from_cookie)
+        .find_map(slider_value_from_cookie)
         .unwrap_or(0.0)
 }
 
 pub(crate) fn initial_palette(cx: &Cx) -> PolineManagerImpl {
-    palette_for_slider(initial_hue(cx))
+    palette_for_slider(initial_slider_value(cx))
 }
 
 pub(crate) fn document_palette_style(cx: &Cx) -> String {
@@ -57,9 +57,9 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn server_renders_request_scoped_hue_before_browser_initialization() {
+    async fn server_renders_request_scoped_slider_value_before_browser_initialization() {
         let router = Router::builder().page(palette_page).build();
-        for (cookie, hue) in [
+        for (cookie, slider_value) in [
             (Some("other=1; liquid-hue-v2=171"), 171.0),
             (Some("liquid-hue-v2=360"), 360.0),
             (None, 0.0),
@@ -76,9 +76,9 @@ mod tests {
             assert_eq!(response.status(), StatusCode::OK);
             let body = to_bytes(response.into_body(), 1_000_000).await.unwrap();
             let html = std::str::from_utf8(&body).unwrap();
-            let palette = palette_for_slider(hue);
+            let palette = palette_for_slider(slider_value);
 
-            assert!(html.contains(&format!("value=\"{hue}\"")));
+            assert!(html.contains(&format!("value=\"{slider_value}\"")));
             assert!(html.contains(&canvas_background_style(&palette)));
             assert!(html.contains("<liquid-canvas"));
             assert!(html.contains("background: var(--poline-background-color);"));

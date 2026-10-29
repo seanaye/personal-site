@@ -3,8 +3,8 @@ use std::cell::Cell;
 use gloo::events::EventListener;
 use liquid::{
     color::{
-        canvas_background_style, hue_from_cookie, palette_css_properties, palette_for_slider,
-        parse_slider_hue, rgb_css, HUE_CHANGE_EVENT, HUE_COOKIE_NAME, HUE_STORAGE_KEY,
+        canvas_background_style, palette_css_properties, palette_for_slider, parse_slider_value,
+        rgb_css, slider_value_from_cookie, HUE_CHANGE_EVENT, SLIDER_COOKIE_NAME,
     },
     palette::PolineManager,
 };
@@ -41,7 +41,7 @@ pub fn register() {
 
 thread_local! {
     // Keep interactions working even when the browser blocks persistence.
-    static CURRENT_HUE: Cell<Option<f64>> = const { Cell::new(None) };
+    static CURRENT_SLIDER_VALUE: Cell<Option<f64>> = const { Cell::new(None) };
 }
 
 fn html_document() -> Option<HtmlDocument> {
@@ -51,19 +51,11 @@ fn html_document() -> Option<HtmlDocument> {
         .ok()
 }
 
-pub(crate) fn stored_hue() -> Option<f64> {
-    CURRENT_HUE.get().or_else(|| {
-        // Prefer the cookie used by SSR to avoid a stale local-storage value
-        // changing the palette immediately after navigation.
+pub(crate) fn current_slider_value() -> Option<f64> {
+    CURRENT_SLIDER_VALUE.get().or_else(|| {
         html_document()
             .and_then(|document| document.cookie().ok())
-            .and_then(|cookies| hue_from_cookie(&cookies))
-            .or_else(|| {
-                web_sys::window()
-                    .and_then(|window| window.local_storage().ok().flatten())
-                    .and_then(|storage| storage.get_item(HUE_STORAGE_KEY).ok().flatten())
-                    .and_then(|value| parse_slider_hue(&value))
-            })
+            .and_then(|cookies| slider_value_from_cookie(&cookies))
     })
 }
 
@@ -76,13 +68,8 @@ fn dispatch_hue_change() {
     }
 }
 
-fn store_hue(value: f64) {
-    CURRENT_HUE.set(Some(value));
-    if let Some(storage) =
-        web_sys::window().and_then(|window| window.local_storage().ok().flatten())
-    {
-        _ = storage.set_item(HUE_STORAGE_KEY, &value.to_string());
-    }
+fn store_slider_value(value: f64) {
+    CURRENT_SLIDER_VALUE.set(Some(value));
     if let Some(document) = html_document() {
         let secure = web_sys::window()
             .and_then(|window| window.location().protocol().ok())
@@ -90,14 +77,14 @@ fn store_hue(value: f64) {
         let secure = if secure { "; Secure" } else { "" };
         // A non-sensitive preference, intentionally readable/writable by JS.
         _ = document.set_cookie(&format!(
-            "{HUE_COOKIE_NAME}={value}; Path=/; Max-Age=31536000; SameSite=Lax{secure}"
+            "{SLIDER_COOKIE_NAME}={value}; Path=/; Max-Age=31536000; SameSite=Lax{secure}"
         ));
     }
     dispatch_hue_change();
 }
 
-fn apply_document_palette(hue: f64) {
-    let palette = palette_for_slider(hue);
+fn apply_document_palette(slider_value: f64) {
+    let palette = palette_for_slider(slider_value);
 
     let Some(root) = web_sys::window()
         .and_then(|window| window.document())
@@ -146,11 +133,11 @@ impl HueSlider {
             return;
         };
 
-        let hue = stored_hue()
-            .or_else(|| parse_slider_hue(&input.value()))
+        let slider_value = current_slider_value()
+            .or_else(|| parse_slider_value(&input.value()))
             .unwrap_or(0.0);
-        input.set_value(&hue.to_string());
-        apply_document_palette(hue);
+        input.set_value(&slider_value.to_string());
+        apply_document_palette(slider_value);
 
         let listener = EventListener::new(&input, "input", move |event| {
             let Some(input) = event
@@ -159,17 +146,16 @@ impl HueSlider {
             else {
                 return;
             };
-            let Some(hue) = parse_slider_hue(&input.value()) else {
+            let Some(value) = parse_slider_value(&input.value()) else {
                 return;
             };
-            apply_document_palette(hue);
-            store_hue(hue);
+            apply_document_palette(value);
+            store_slider_value(value);
         });
         self.listeners.push(listener);
 
-        // Migrate existing local-storage preferences and synchronize the
-        // other elements. Future page requests can now render this hue.
-        store_hue(hue);
+        // Persist the raw slider position and synchronize the other elements.
+        store_slider_value(slider_value);
     }
 
     pub fn disconnected(&mut self) {
@@ -191,9 +177,12 @@ impl PolineBackground {
         }
     }
 
-    fn apply(&self, hue: f64) {
+    fn apply(&self, slider_value: f64) {
         self.element
-            .set_attribute("style", &canvas_background_style(&palette_for_slider(hue)))
+            .set_attribute(
+                "style",
+                &canvas_background_style(&palette_for_slider(slider_value)),
+            )
             .unwrap_or_else(|error| log::error!("failed to update liquid background: {error:?}"));
     }
 }
@@ -205,7 +194,7 @@ impl PolineBackground {
             return;
         }
 
-        self.apply(stored_hue().unwrap_or(0.0));
+        self.apply(current_slider_value().unwrap_or(0.0));
         let element = self.element.clone();
         let listener = EventListener::new(
             &web_sys::window().expect("browser window"),
@@ -214,7 +203,9 @@ impl PolineBackground {
                 element
                     .set_attribute(
                         "style",
-                        &canvas_background_style(&palette_for_slider(stored_hue().unwrap_or(0.0))),
+                        &canvas_background_style(&palette_for_slider(
+                            current_slider_value().unwrap_or(0.0),
+                        )),
                     )
                     .unwrap_or_else(|error| {
                         log::error!("failed to update liquid background: {error:?}")
@@ -243,8 +234,8 @@ impl PolinePalette {
         }
     }
 
-    fn apply(&self, hue: f64) {
-        let palette = palette_for_slider(hue);
+    fn apply(&self, slider_value: f64) {
+        let palette = palette_for_slider(slider_value);
         let children = self.element.children();
         for (index, [r, g, b]) in palette.colors().iter().copied().enumerate() {
             let Some(child) = children.item(index as u32) else {
@@ -267,13 +258,13 @@ impl PolinePalette {
             return;
         }
 
-        self.apply(stored_hue().unwrap_or(0.0));
+        self.apply(current_slider_value().unwrap_or(0.0));
         let element = self.element.clone();
         let listener = EventListener::new(
             &web_sys::window().expect("browser window"),
             HUE_CHANGE_EVENT,
             move |_| {
-                let palette = palette_for_slider(stored_hue().unwrap_or(0.0));
+                let palette = palette_for_slider(current_slider_value().unwrap_or(0.0));
                 let children = element.children();
                 for (index, [r, g, b]) in palette.colors().iter().copied().enumerate() {
                     let Some(child) = children.item(index as u32) else {
