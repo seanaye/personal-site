@@ -154,47 +154,43 @@ impl ImmichImageRepository {
 impl ImageRepository for ImmichImageRepository {
     type Error = ImmichRepositoryError;
 
-    fn list_images(
+    async fn list_images(
         &self,
         cursor: Option<ImageCursor>,
         limit: usize,
-    ) -> impl Future<Output = Result<ImagePage, Self::Error>> + Send {
-        async move {
-            let page = Self::cursor_to_page(cursor.as_ref())?;
+    ) -> Result<ImagePage, Self::Error> {
+        let page = Self::cursor_to_page(cursor.as_ref())?;
 
-            let body = MetadataSearchDto {
-                page,
-                size: Some(Self::page_size(limit)?),
-                type_: Some(AssetTypeEnum::Image),
-                with_exif: Some(true),
-                ..Default::default()
-            };
+        let body = MetadataSearchDto {
+            page,
+            size: Some(Self::page_size(limit)?),
+            type_: Some(AssetTypeEnum::Image),
+            with_exif: Some(true),
+            ..Default::default()
+        };
 
-            self.search_page(body).await
-        }
+        self.search_page(body).await
     }
 
-    fn list_images_taken_in(
+    async fn list_images_taken_in(
         &self,
         range: ImageDateRange,
         cursor: Option<ImageCursor>,
         limit: usize,
-    ) -> impl Future<Output = Result<ImagePage, Self::Error>> + Send {
-        async move {
-            let page = Self::cursor_to_page(cursor.as_ref())?;
+    ) -> Result<ImagePage, Self::Error> {
+        let page = Self::cursor_to_page(cursor.as_ref())?;
 
-            let body = MetadataSearchDto {
-                page,
-                size: Some(Self::page_size(limit)?),
-                type_: Some(AssetTypeEnum::Image),
-                with_exif: Some(true),
-                taken_after: range.after,
-                taken_before: range.before,
-                ..Default::default()
-            };
+        let body = MetadataSearchDto {
+            page,
+            size: Some(Self::page_size(limit)?),
+            type_: Some(AssetTypeEnum::Image),
+            with_exif: Some(true),
+            taken_after: range.after,
+            taken_before: range.before,
+            ..Default::default()
+        };
 
-            self.search_page(body).await
-        }
+        self.search_page(body).await
     }
 
     fn fetch_image_bytes(

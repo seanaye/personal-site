@@ -69,30 +69,28 @@ pub enum InMemoryRepositoryError {
 impl ImageRepository for InMemoryImageRepository {
     type Error = InMemoryRepositoryError;
 
-    fn list_images(
+    async fn list_images(
         &self,
         cursor: Option<ImageCursor>,
         limit: usize,
-    ) -> impl Future<Output = Result<ImagePage, Self::Error>> + Send {
-        async move { Self::paginate(self.images.clone(), cursor, limit) }
+    ) -> Result<ImagePage, Self::Error> {
+        Self::paginate(self.images.clone(), cursor, limit)
     }
 
-    fn list_images_taken_in(
+    async fn list_images_taken_in(
         &self,
         range: ImageDateRange,
         cursor: Option<ImageCursor>,
         limit: usize,
-    ) -> impl Future<Output = Result<ImagePage, Self::Error>> + Send {
-        async move {
-            let images: Vec<Image> = self
-                .images
-                .iter()
-                .filter(|image| Self::taken_at(image).is_some_and(|taken| range.contains(taken)))
-                .cloned()
-                .collect();
+    ) -> Result<ImagePage, Self::Error> {
+        let images: Vec<Image> = self
+            .images
+            .iter()
+            .filter(|image| Self::taken_at(image).is_some_and(|taken| range.contains(taken)))
+            .cloned()
+            .collect();
 
-            Self::paginate(images, cursor, limit)
-        }
+        Self::paginate(images, cursor, limit)
     }
 
     fn fetch_image_bytes(

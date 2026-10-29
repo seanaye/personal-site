@@ -113,8 +113,8 @@ impl ImageDateRange {
 
     /// Whether `instant` falls inside the range.
     pub fn contains(&self, instant: DateTime<Utc>) -> bool {
-        self.after.map_or(true, |after| instant >= after)
-            && self.before.map_or(true, |before| instant <= before)
+        self.after.is_none_or(|after| instant >= after)
+            && self.before.is_none_or(|before| instant <= before)
     }
 }
 

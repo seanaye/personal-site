@@ -130,11 +130,8 @@ mod tests {
         let mut c = image("c.jpg");
         c.metadata
             .insert("createdAt".to_owned(), "2024-12-01T00:00:00Z".to_owned());
-        let repository = InMemoryImageRepository::new(vec![
-            (a, vec![0x00]),
-            (b, vec![0x01]),
-            (c, vec![0x02]),
-        ]);
+        let repository =
+            InMemoryImageRepository::new(vec![(a, vec![0x00]), (b, vec![0x01]), (c, vec![0x02])]);
         let service = ImageService::new(repository);
 
         let range = ImageDateRange::new(
