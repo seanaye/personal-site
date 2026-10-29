@@ -1,11 +1,11 @@
 use std::collections::HashMap;
 
-use futures::{stream, StreamExt};
+use futures::{StreamExt, stream};
 use grid::{AspectRatio, Dimension};
 use itertools::Itertools;
 use list_bucket::{FlattenResult, ListRecursive};
 use s3::{
-    bucket::Bucket, creds::Credentials, error::S3Error, serde_types::ListBucketResult, Region,
+    Region, bucket::Bucket, creds::Credentials, error::S3Error, serde_types::ListBucketResult,
 };
 use url::Url;
 

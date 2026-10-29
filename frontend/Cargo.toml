@@ -6,13 +6,32 @@ edition = "2021"
 [lib]
 crate-type = ["cdylib", "rlib"]
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
-[dependencies]
-app = { path = "../app", default-features = false, features = ["hydrate"] }
-leptos = { workspace = true, features = [ "hydrate" ] }
-
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+liquid = { path = "../liquid" }
+grid = { path = "../grid" }
 console_error_panic_hook.workspace = true
 console_log.workspace = true
 log.workspace = true
 wasm-bindgen.workspace = true
+js-sys = "0.3"
+gloo = "0.11.0"
+rand = "0.8.5"
+web-sys = { version = "0.3.74", features = [
+  "CssStyleDeclaration",
+  "Document",
+  "Element",
+  "Event",
+  "EventTarget",
+  "HtmlCanvasElement",
+  "HtmlCollection",
+  "HtmlElement",
+  "HtmlInputElement",
+  "MouseEvent",
+  "Node",
+  "Storage",
+  "Window",
+] }
+wgpu = { version = "24", features = ["webgpu", "webgl"] }
+bytemuck = { version = "1", features = ["derive"] }
+wasm-bindgen-futures = "0.4"
+getrandom = { version = "0.2", features = ["js"] }

@@ -1,13 +1,19 @@
-// this import is required to make islands work
-#[allow(clippy::single_component_path_imports, unused_imports)]
-use app;
+#[cfg(target_arch = "wasm32")]
+mod elements;
+#[cfg(target_arch = "wasm32")]
+mod liquid_canvas;
+#[cfg(target_arch = "wasm32")]
+mod wgpu_renderer;
+
+#[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::wasm_bindgen;
 
-#[wasm_bindgen]
-pub fn hydrate() {
-    // Keep browser console quiet; wgpu emits verbose shader diagnostics at Debug/Info.
+/// Initialize the WASM module and upgrade the server-rendered custom elements.
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen(start)]
+pub fn start() {
+    // Keep the browser console quiet; wgpu emits verbose shader diagnostics.
     _ = console_log::init_with_level(log::Level::Warn);
     console_error_panic_hook::set_once();
-
-    leptos::mount::hydrate_islands();
+    elements::register();
 }

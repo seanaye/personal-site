@@ -1,10 +1,7 @@
 use bytemuck::{Pod, Zeroable};
-use leptos::prelude::*;
-#[cfg(target_arch = "wasm32")]
+use liquid::palette::{Event, PolineManager, PolineManagerImpl};
 use wasm_bindgen::JsCast;
 use wgpu::util::DeviceExt;
-
-use crate::canvas_grid::{Event, EventState, PolineManager, PolineManagerImpl};
 
 #[repr(C)]
 #[derive(Copy, Clone, Pod, Zeroable)]
@@ -37,11 +34,10 @@ impl Default for DropsUniform {
     }
 }
 
-pub struct WgpuLiquidRenderer<T> {
+pub struct WgpuLiquidRenderer {
     device: wgpu::Device,
     queue: wgpu::Queue,
     surface: wgpu::Surface<'static>,
-    surface_config: wgpu::SurfaceConfiguration,
 
     // Ping-pong simulation textures (Rg32Float)
     tex_a_view: wgpu::TextureView,
@@ -62,13 +58,6 @@ pub struct WgpuLiquidRenderer<T> {
 
     // State
     frame_parity: bool,
-    width: u32,
-    height: u32,
-
-    // Leptos integration
-    events: ReadSignal<EventState>,
-    clear_events: T,
-    poline: Memo<PolineManagerImpl>,
     last_hue: f64,
     palette_texture: wgpu::Texture,
 }
@@ -170,17 +159,12 @@ fn ensure_gpu_canvas_context_constructor() {
 #[cfg(not(target_arch = "wasm32"))]
 fn ensure_gpu_canvas_context_constructor() {}
 
-impl<T> WgpuLiquidRenderer<T>
-where
-    T: Fn() + 'static,
-{
+impl WgpuLiquidRenderer {
     pub async fn new(
         canvas: web_sys::HtmlCanvasElement,
         width: u32,
         height: u32,
-        events: ReadSignal<EventState>,
-        clear_events: T,
-        poline: Memo<PolineManagerImpl>,
+        poline: &PolineManagerImpl,
     ) -> Option<Self> {
         ensure_gpu_canvas_context_constructor();
 
@@ -279,9 +263,8 @@ where
 
         // Upload initial palette
         let initial_hue = {
-            let p = poline.read_untracked();
-            upload_palette(&queue, &palette_texture, p.colors());
-            *p.abs_hue()
+            upload_palette(&queue, &palette_texture, poline.colors());
+            *poline.abs_hue()
         };
 
         // Uniform buffers
@@ -527,7 +510,6 @@ where
             device,
             queue,
             surface,
-            surface_config,
             tex_a_view,
             tex_b_view,
             sim_pipeline,
@@ -538,64 +520,44 @@ where
             display_bg_b,
             drops_buf,
             frame_parity: false,
-            width,
-            height,
-            events,
-            clear_events,
-            poline,
             last_hue: initial_hue,
             palette_texture,
         })
     }
 
-    fn collect_drops(&self) -> DropsUniform {
+    fn collect_drops(events: &[Event]) -> DropsUniform {
         let mut drops = DropsUniform::default();
-        self.events.with_untracked(|state| {
-            for ev in &state.events {
-                if drops.count as usize >= MAX_DROPS {
-                    break;
-                }
-                match ev {
-                    Event::AddDrop { coord } => {
-                        let idx = drops.count as usize;
-                        drops.coords[idx] = [coord.x as u32, coord.y as u32, 0, 0];
-                        drops.count += 1;
-                    }
+        for event in events.iter().take(MAX_DROPS) {
+            match event {
+                Event::AddDrop { coord } => {
+                    let idx = drops.count as usize;
+                    drops.coords[idx] = [coord.x as u32, coord.y as u32, 0, 0];
+                    drops.count += 1;
                 }
             }
-        });
+        }
         drops
     }
 
-    fn update_palette_if_needed(&mut self) {
-        let p = self.poline.read_untracked();
-        let current_hue = *p.abs_hue();
+    fn update_palette_if_needed(&mut self, poline: &PolineManagerImpl) {
+        let current_hue = *poline.abs_hue();
         if current_hue != self.last_hue {
-            upload_palette(&self.queue, &self.palette_texture, p.colors());
+            upload_palette(&self.queue, &self.palette_texture, poline.colors());
             self.last_hue = current_hue;
         }
     }
 
-    pub fn draw(&mut self) -> Result<(), ()> {
-        // Check for cancel
-        let cancelled = self.events.with_untracked(|state| state.cancel);
-        if cancelled {
-            return Err(());
-        }
-
-        // Collect drops and clear events
-        let drops = self.collect_drops();
-        (self.clear_events)();
-
-        // Upload drops
+    pub fn draw(
+        &mut self,
+        events: &[Event],
+        poline: &PolineManagerImpl,
+    ) -> Result<(), wgpu::SurfaceError> {
+        let drops = Self::collect_drops(events);
         self.queue
             .write_buffer(&self.drops_buf, 0, bytemuck::bytes_of(&drops));
+        self.update_palette_if_needed(poline);
 
-        // Update palette if hue changed
-        self.update_palette_if_needed();
-
-        // Get surface texture
-        let output = self.surface.get_current_texture().map_err(|_| ())?;
+        let output = self.surface.get_current_texture()?;
         let surface_view = output.texture.create_view(&Default::default());
 
         let mut encoder = self

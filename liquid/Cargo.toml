@@ -5,5 +5,5 @@ edition = "2021"
 
 [dependencies]
 grid = { path = "../grid" }
-log.workspace = true
-streaming-iterator = "0.1.9"
+poline-rs = { git = "https://github.com/seanaye/poline-rs" }
+colorsys = "0.6.7"

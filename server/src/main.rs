@@ -1,17 +1,13 @@
 #![allow(dead_code, unused_imports)]
 
-use app::*;
-use axum::Router;
-use bucket::{get_bucket, BucketAccess};
+use bucket::{BucketAccess, get_bucket};
 use config::{AppConfig, Config, R2Config};
 use grid::{FromSize, RoundedAspectRatio, Size};
-use leptos::prelude::*;
-use leptos_axum::{generate_route_list, LeptosRoutes};
+use images::{ImageService, adapters::ImmichImageRepository};
 use photo_search::PhotoAccess;
-use photogrid::{PhotoLayoutData, ResponsivePhotoGrid, SrcSet};
-use images::{adapters::ImmichImageRepository, ImageService};
 use photo_share::PhotoShareState;
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use photogrid::{PhotoLayoutData, ResponsivePhotoGrid, SrcSet};
+use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use sign::TokenSigner;
 use std::{
     collections::HashMap,
@@ -19,10 +15,16 @@ use std::{
     io::{Read, Write},
     sync::Arc,
 };
+use topcoat::{
+    asset::{AssetBundle, RouterBuilderAssetExt},
+    router::RouterBuilderDirectoryExt,
+};
+
 mod bucket;
 mod config;
 mod photo_share;
 mod sign;
+mod static_assets;
 
 /// Build the photo-share state from the app configuration.
 ///
@@ -109,69 +111,27 @@ async fn main() {
     let _ = dotenv::dotenv();
 
     let app_config = AppConfig::new().expect("failed to load configuration");
-
-    // Setting get_configuration(None) means we'll be using cargo-leptos's env values
-    // For deployment these variables are:
-    // <https://github.com/leptos-rs/start-axum#executing-a-server-on-a-remote-machine-without-the-toolchain>
-    // Alternately a file can be specified such as Some("Cargo.toml")
-    // The file would need to be included with the executable when moved to deployment
-    let conf = get_configuration(if cfg!(debug_assertions) {
-        None
-    } else {
-        Some("Cargo.toml")
-    })
-    .unwrap();
-    let leptos_options = conf.leptos_options;
-    let addr = leptos_options.site_addr;
-    let routes = generate_route_list(App);
-    // a 1727827200
-    // b 1728259200
-
-    // let mut g = photo_data().await.unwrap().collect::<Vec<_>>();
-    // g.sort_unstable_by_key(|item| {
-    //     item.get_timestamp()
-    // });
-    // write_to_file(&g);
     let data: Vec<PhotoLayoutData> = cached();
-
     let photos: Arc<[PhotoLayoutData]> = Arc::from(data);
 
     let share_state = photo_share_state(&app_config.inner).await;
-    // Injected into the Leptos context so the `/photo/:token` route's server
-    // function can resolve share tokens (see `app::photo_share`).
-    let shared_photos_fetcher = share_state
-        .clone()
-        .map(photo_share::shared_photos_fetcher);
+    let shared_photos_fetcher = share_state.clone().map(photo_share::shared_photos_fetcher);
+    let site_root = std::env::var("SITE_ROOT").unwrap_or_else(|_| "target/site".to_owned());
 
-    // build our application with a route
-    let mut app = Router::new()
-        .leptos_routes_with_context(
-            &leptos_options,
-            routes,
-            move || {
-                provide_context(photos.clone());
-                if let Some(fetcher) = shared_photos_fetcher.clone() {
-                    provide_context(fetcher);
-                }
-            },
-            {
-                let leptos_options = leptos_options.clone();
-                move || shell(leptos_options.clone())
-            },
-        )
-        .fallback(leptos_axum::file_and_error_handler(shell))
-        .with_state(leptos_options);
-
+    let mut router = app::router(photos, shared_photos_fetcher)
+        .serve_dir("/pkg/{*file}", format!("{site_root}/pkg"))
+        .route(static_assets::avatar)
+        .route(static_assets::favicon)
+        .route(static_assets::noise)
+        .route(static_assets::bootstrap);
     if let Some(share_state) = share_state {
         log::info!("photo share enabled at /photo/{{token}} and /image/{{token}}");
-        app = app.merge(photo_share::image_router(share_state));
+        router = router
+            .app_context(share_state)
+            .route(photo_share::image_bytes);
     }
 
-    // run our app with hyper
-    // `axum::Server` is a re-export of `hyper::Server`
-    log::info!("listening on http://{}", &addr);
-    let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
-    axum::serve(listener, app.into_make_service())
-        .await
-        .unwrap();
+    let assets = AssetBundle::load()
+        .expect("failed to load Topcoat asset bundle; run `topcoat asset bundle -p server`");
+    topcoat::start(router.assets(assets).build()).await.unwrap();
 }

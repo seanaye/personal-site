@@ -1,143 +1,79 @@
-//! Signed photo share page (`/photo/:token`), streamed the Leptos way.
+//! Signed photo-share page served by Topcoat.
 //!
-//! The route uses in-order streaming SSR ([`SsrMode::InOrder`]): everything
-//! before the `<Suspense>` (including the document head, so CSS loads early)
-//! is flushed immediately, then the stream pauses until the photos have been
-//! fetched from Immich. In-order mode never renders the Suspense fallback,
-//! so the loading indicator is a plain element ahead of the grid that a
-//! `:has()` rule hides once the grid content streams in.
-//!
-//! Out-of-order streaming cannot be used here: it leaves suspense swap
-//! artifacts (`<template>`, `<script>`, marker comments) in the DOM, which
-//! desync the islands router's lockstep tree diff on the next navigation.
-//!
-//! The app crate stays decoupled from the Immich/token-signing machinery: the
-//! server injects a [`ssr::SharedPhotosFetcher`] into context, and the server
-//! function below simply invokes it.
-//!
-//! [`SsrMode::InOrder`]: leptos_router::SsrMode::InOrder
+//! The server registers a [`SharedPhotosFetcher`] in application context. The
+//! async grid component resolves the token directly during SSR, while Topcoat
+//! streams the page shell before the Immich request completes.
 
-use leptos::prelude::*;
-use leptos_meta::Title;
-use leptos_router::{
-    hooks::use_params,
-    params::{Params, ParamsError, ParamsMap},
-};
+use std::{future::Future, pin::Pin, sync::Arc};
+
 use photogrid::PhotoLayoutData;
+use topcoat::{
+    Result,
+    context::{Cx, try_app_context},
+    router::{HeaderName, HeaderValue, page, path_param, request::headers},
+    view::{View, component, suspense, view},
+};
 
-use crate::{components::PhotoGridComponent, LayoutContent};
+use crate::{components::photo_grid_component, layout_content};
 
-#[cfg(feature = "ssr")]
-pub mod ssr {
-    use std::{future::Future, pin::Pin, sync::Arc};
+pub type SharedPhotosFuture =
+    Pin<Box<dyn Future<Output = Result<Vec<PhotoLayoutData>, String>> + Send>>;
 
-    use photogrid::PhotoLayoutData;
+/// Server-side port that resolves a share token and request headers into
+/// photogrid layout data. Error strings are logged by the server; visitors see
+/// a generic unavailable message.
+#[derive(Clone)]
+pub struct SharedPhotosFetcher(
+    pub Arc<dyn Fn(String, http::HeaderMap) -> SharedPhotosFuture + Send + Sync>,
+);
 
-    /// Boxed future returned by [`SharedPhotosFetcher`].
-    pub type SharedPhotosFuture =
-        Pin<Box<dyn Future<Output = Result<Vec<PhotoLayoutData>, String>> + Send>>;
+path_param!(token);
 
-    /// Server-side port that resolves a share token (plus the request headers,
-    /// used to build absolute image URLs) into photogrid layout data.
-    ///
-    /// Provided via context by the server binary; the error string is shown
-    /// to the visitor, so it should not leak internals.
-    #[derive(Clone)]
-    pub struct SharedPhotosFetcher(
-        pub Arc<dyn Fn(String, http::HeaderMap) -> SharedPhotosFuture + Send + Sync>,
-    );
-}
+#[page("/photo/{token}")]
+pub async fn shared_photo_page(cx: &Cx) -> Result<impl View> {
+    let token = path_param::<Token>(cx).to_owned();
 
-#[server]
-async fn fetch_shared_photos(token: String) -> Result<Vec<PhotoLayoutData>, ServerFnError> {
-    let fetcher = use_context::<ssr::SharedPhotosFetcher>()
-        .ok_or_else(|| ServerFnError::new("photo sharing is not configured"))?;
-    let headers: http::HeaderMap = leptos_axum::extract().await?;
-
-    (fetcher.0)(token, headers).await.map_err(ServerFnError::new)
-}
-
-#[derive(Debug, PartialEq, Clone)]
-struct ShareParams {
-    token: String,
-}
-
-impl Params for ShareParams {
-    fn from_map(map: &ParamsMap) -> Result<Self, ParamsError> {
-        Ok(Self {
-            token: map.get_str("token").unwrap_or_default().to_owned(),
-        })
-    }
-}
-
-#[component]
-pub fn SharedPhotoPage() -> impl IntoView {
-    // noindex via response header rather than a <meta> tag: the islands
-    // router diffs pages with lockstep TreeWalkers, so a page-specific head
-    // element desyncs the walk and breaks client-side navigation.
-    #[cfg(feature = "ssr")]
-    if let Some(options) = use_context::<leptos_axum::ResponseOptions>() {
-        options.insert_header(
-            http::HeaderName::from_static("x-robots-tag"),
-            http::HeaderValue::from_static("noindex"),
-        );
-    }
-
-    let params = use_params::<ShareParams>();
-    let photos = Resource::new(
-        move || {
-            params
-                .get()
-                .map(|params| params.token)
-                .unwrap_or_default()
-        },
-        fetch_shared_photos,
-    );
-
-    // Keep an element (not a component that renders to marker comments) as
-    // the first node of the route view: the islands router's replaceBranch
-    // skips the first node after a branch marker when counting nested
-    // branches, so leading with <Title/>'s comment markers desyncs the
-    // client-side navigation diff. Title is registered fine from in here.
-    view! {
+    Ok(view! {
+        ((HeaderName::from_static("x-robots-tag"), HeaderValue::from_static("noindex")))
         <section class="contents">
-            <Title text="shared photos | seanaye.ca" />
-            <LayoutContent>
-                <style>
-                    "#share-content:has(#share-grid) #share-loading { display: none; }"
-                </style>
+            layout_content(
+                <style>"#share-content:has(#share-grid) #share-loading { display: none; }"</style>
                 <div id="share-content">
                     <p id="share-loading" class="font-mono animate-pulse">
                         "loading photos…"
                     </p>
-                    <Suspense>
-                        {move || Suspend::new(async move {
-                            let inner = match photos.await {
-                                Ok(data) if data.is_empty() => {
-                                    view! {
-                                        <p class="font-mono">
-                                            "No photos found for this share link."
-                                        </p>
-                                    }
-                                        .into_any()
-                                }
-                                Ok(data) => {
-                                    view! { <PhotoGridComponent data=data /> }.into_any()
-                                }
-                                Err(_) => {
-                                    view! {
-                                        <p class="font-mono">
-                                            "This share link is invalid or unavailable."
-                                        </p>
-                                    }
-                                        .into_any()
-                                }
-                            };
-                            view! { <div id="share-grid">{inner}</div> }
-                        })}
-                    </Suspense>
+                    suspense(
+                        fallback: view! { "" },
+                        shared_photo_grid(token: token)
+                    )
                 </div>
-            </LayoutContent>
+            )
         </section>
-    }
+    })
+}
+
+#[component]
+async fn shared_photo_grid(cx: &Cx, token: String) -> Result<impl View> {
+    let fetcher = try_app_context::<SharedPhotosFetcher>(cx).cloned();
+    let result = match fetcher {
+        Some(fetcher) => (fetcher.0)(token, headers(cx).clone()).await,
+        None => Err("photo sharing is not configured".to_owned()),
+    };
+
+    Ok(view! {
+        <div id="share-grid">
+            match result {
+                Ok(data) => {
+                    if data.is_empty() {
+                        <p class="font-mono">"No photos found for this share link."</p>
+                    } else {
+                        photo_grid_component(data: data)
+                    }
+                },
+                Err(_) => {
+                    <p class="font-mono">"This share link is invalid or unavailable."</p>
+                },
+            }
+        </div>
+    })
 }

@@ -1,32 +1,30 @@
 //! Signed photo-sharing infrastructure.
 //!
-//! - [`shared_photos_fetcher`] backs the Leptos `/photo/:token` route: it is
-//!   injected into the Leptos context and invoked by the `fetch_shared_photos`
-//!   server function, resolving a signed [`Claims::PhotoRange`] token into
-//!   photogrid layout data with signed image URLs.
-//! - `GET /image/{token}?size={thumbnail|preview|fullsize}`: `token` is a
-//!   signed [`Claims::Image`]. Streams the raw image bytes from Immich at the
-//!   requested size (default `fullsize`).
+//! - [`shared_photos_fetcher`] resolves `/photo/{token}` pages into photogrid
+//!   layout data with signed image URLs.
+//! - `GET /image/{token}?size={thumbnail|preview|fullsize}` streams raw image
+//!   bytes from Immich through a Topcoat response body.
 
 use std::{collections::HashMap, sync::Arc};
 
-use app::photo_share::ssr::SharedPhotosFetcher;
-use axum::{
-    body::Body,
-    extract::{Path, Query, State},
-    http::{header, HeaderMap, StatusCode},
-    response::{IntoResponse, Response},
-    routing::get,
-    Router,
-};
+use app::photo_share::SharedPhotosFetcher;
 use chrono::DateTime;
+use futures::StreamExt;
 use grid::Dimension;
+use http_body::Frame;
+use http_body_util::StreamBody;
 use images::{
-    adapters::ImmichImageRepository, Image, ImageDateRange, ImageId, ImageService, ImageSize,
-    ImageVariant,
+    Image, ImageDateRange, ImageId, ImageService, ImageSize, ImageVariant,
+    adapters::ImmichImageRepository,
 };
 use photogrid::{PhotoLayoutData, SrcSet};
-use serde::Deserialize;
+use topcoat::{
+    context::{Cx, app_context},
+    router::{
+        Body, HeaderValue, StatusCode, error::bad_request, header, path_param, query_params,
+        response::Response, route,
+    },
+};
 use url::Url;
 
 use crate::sign::{Claims, TokenSigner};
@@ -39,15 +37,61 @@ pub struct PhotoShareState {
     pub public_base_url: Option<Url>,
 }
 
-/// Router for the signed image byte endpoint.
-pub fn image_router(state: Arc<PhotoShareState>) -> Router {
-    Router::new()
-        .route("/image/{token}", get(image_bytes))
-        .with_state(state)
+path_param!(token);
+
+#[query_params]
+#[derive(Debug, Default)]
+struct ImageQuery {
+    size: Option<ImageSize>,
 }
 
-/// Build the [`SharedPhotosFetcher`] that the Leptos share page consumes via
-/// context. Error strings are user-facing; details are logged instead.
+fn text_response(status: StatusCode, text: &'static str) -> Response {
+    Response::builder()
+        .status(status)
+        .body(Body::from(text))
+        .expect("text response should build")
+}
+
+#[route(GET "/image/{token}")]
+pub async fn image_bytes(cx: &Cx) -> topcoat::Result<Response> {
+    let state: &Arc<PhotoShareState> = app_context(cx);
+    let token = path_param::<Token>(cx);
+    let Ok(Claims::Image { id }) = state.signer.verify(token) else {
+        return Ok(text_response(StatusCode::FORBIDDEN, "invalid image token"));
+    };
+
+    let query = query_params::<ImageQuery>(cx)
+        .map_err(|error| bad_request(format!("invalid image query: {error}")))?;
+    let size = query.size.unwrap_or_default();
+
+    match state.service.image_bytes(&ImageId::new(id), size).await {
+        Ok(image_bytes) => {
+            let stream = image_bytes.stream.map(|chunk| chunk.map(Frame::data));
+            let body = Body::new(StreamBody::new(stream));
+
+            // A signed URL is the access credential and its rendition never
+            // changes, so shared caches can retain it indefinitely.
+            let mut response = Response::builder().status(StatusCode::OK).header(
+                header::CACHE_CONTROL,
+                HeaderValue::from_static("public, max-age=31536000, immutable"),
+            );
+            if let Some(content_type) = &image_bytes.content_type {
+                response = response.header(header::CONTENT_TYPE, content_type);
+            }
+            Ok(response.body(body).expect("image response should build"))
+        }
+        Err(error) => {
+            log::error!("failed to stream image bytes from Immich: {error}");
+            Ok(text_response(
+                StatusCode::BAD_GATEWAY,
+                "failed to fetch image",
+            ))
+        }
+    }
+}
+
+/// Build the fetcher consumed by the Topcoat share page. Error strings are
+/// user-facing at this boundary; internal details are logged instead.
 pub fn shared_photos_fetcher(state: Arc<PhotoShareState>) -> SharedPhotosFetcher {
     SharedPhotosFetcher(Arc::new(move |token, headers| {
         let state = state.clone();
@@ -63,10 +107,14 @@ pub fn shared_photos_fetcher(state: Arc<PhotoShareState>) -> SharedPhotosFetcher
 
             let base_url = base_url(&state, &headers)?;
 
-            let images = state.service.images_taken_in(range).await.map_err(|error| {
-                log::error!("failed to fetch shared photos from Immich: {error}");
-                "failed to fetch photos".to_owned()
-            })?;
+            let images = state
+                .service
+                .images_taken_in(range)
+                .await
+                .map_err(|error| {
+                    log::error!("failed to fetch shared photos from Immich: {error}");
+                    "failed to fetch photos".to_owned()
+                })?;
 
             Ok(images
                 .iter()
@@ -76,50 +124,8 @@ pub fn shared_photos_fetcher(state: Arc<PhotoShareState>) -> SharedPhotosFetcher
     }))
 }
 
-#[derive(Debug, Default, Deserialize)]
-struct ImageQuery {
-    #[serde(default)]
-    size: ImageSize,
-}
-
-async fn image_bytes(
-    State(state): State<Arc<PhotoShareState>>,
-    Path(token): Path<String>,
-    query: Query<ImageQuery>,
-) -> Response {
-    let Ok(Claims::Image { id }) = state.signer.verify(&token) else {
-        return (StatusCode::FORBIDDEN, "invalid image token").into_response();
-    };
-    let size = query.size;
-
-    match state.service.image_bytes(&ImageId::new(id), size).await {
-        Ok(image_bytes) => {
-            // `public` + `immutable` lets shared caches (the Cloudflare CDN)
-            // hold the bytes for a year: a given asset+size rendition never
-            // changes, tokens are deterministic per image id (stable cache
-            // keys), and the signed URL itself is the access credential.
-            let mut response = Response::builder()
-                .status(StatusCode::OK)
-                .header(
-                    header::CACHE_CONTROL,
-                    "public, max-age=31536000, immutable",
-                );
-            if let Some(content_type) = &image_bytes.content_type {
-                response = response.header(header::CONTENT_TYPE, content_type);
-            }
-            response
-                .body(Body::from_stream(image_bytes.stream))
-                .expect("image response should build")
-        }
-        Err(error) => {
-            log::error!("failed to stream image bytes from Immich: {error}");
-            (StatusCode::BAD_GATEWAY, "failed to fetch image").into_response()
-        }
-    }
-}
-
 /// Resolve the absolute base URL that signed image URLs should be joined onto.
-fn base_url(state: &PhotoShareState, headers: &HeaderMap) -> Result<Url, String> {
+fn base_url(state: &PhotoShareState, headers: &http::HeaderMap) -> Result<Url, String> {
     if let Some(url) = &state.public_base_url {
         return Ok(url.clone());
     }
@@ -136,10 +142,13 @@ fn base_url(state: &PhotoShareState, headers: &HeaderMap) -> Result<Url, String>
     Url::parse(&format!("{scheme}://{host}/")).map_err(|_| "invalid host header".to_owned())
 }
 
-/// Map a domain [`Image`] onto the photogrid layout data, replacing direct
-/// Immich URLs with signed `/image/{token}` URLs. The grid itself loads the
-/// lower-quality preview while the photo links out to the fullsize rendition.
-fn photo_layout_data(image: &Image, base_url: &Url, signer: &TokenSigner) -> Option<PhotoLayoutData> {
+/// Map a domain [`Image`] onto photogrid layout data, replacing direct Immich
+/// URLs with signed `/image/{token}` URLs.
+fn photo_layout_data(
+    image: &Image,
+    base_url: &Url,
+    signer: &TokenSigner,
+) -> Option<PhotoLayoutData> {
     let token = signer.sign(&Claims::Image {
         id: image.id.to_string(),
     });

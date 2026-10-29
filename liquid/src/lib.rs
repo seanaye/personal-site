@@ -1,3 +1,6 @@
+pub mod color;
+pub mod palette;
+
 use grid::{Coord, Grid, Neighbours, Size};
 
 #[derive(Debug, Clone)]
