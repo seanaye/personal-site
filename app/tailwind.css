@@ -1,9 +1,11 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
 
-leptos-island,
-leptos-children {
+@plugin "@tailwindcss/forms";
+@plugin "@tailwindcss/typography";
+
+@source "./src/**/*.rs";
+
+hue-slider {
   display: contents;
 }
 
