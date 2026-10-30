@@ -1,11 +1,16 @@
-use std::collections::HashMap;
-
+use app::domain::ports::BucketStorage;
 use futures::{StreamExt, stream};
 use grid::{AspectRatio, Dimension};
 use itertools::Itertools;
 use list_bucket::{FlattenResult, ListRecursive};
+use rootcause::{option_ext::OptionExt, prelude::*};
 use s3::{
     Region, bucket::Bucket, creds::Credentials, error::S3Error, serde_types::ListBucketResult,
+};
+use std::{
+    borrow::Cow,
+    collections::HashMap,
+    path::{Path, PathBuf},
 };
 use url::Url;
 
@@ -49,7 +54,12 @@ impl<'a> BucketAccess<'a> {
         Self { bucket, host }
     }
 
-    pub async fn list_resized(&self) -> anyhow::Result<HashMap<String, Vec<ResizedImage>>> {
+    pub async fn get_item(&self, item: &str) -> rootcause::Result<String> {
+        let res = self.bucket.presign_get(item, 86400, None).await?;
+        Ok(res)
+    }
+
+    pub async fn list_resized(&self) -> rootcause::Result<HashMap<String, Vec<ResizedImage>>> {
         let res = self
             .bucket
             .list_recursive("resized/".into(), Some("/".into()))
@@ -85,5 +95,30 @@ impl<'a> BucketAccess<'a> {
         }
 
         Ok(out)
+    }
+
+    pub fn with_prefix(self, prefix: PathBuf) -> BucketLister<'a> {
+        BucketLister {
+            bucket: self,
+            prefix,
+        }
+    }
+}
+
+pub struct BucketLister<'a> {
+    bucket: BucketAccess<'a>,
+    prefix: PathBuf,
+}
+
+impl BucketStorage for BucketLister<'static> {
+    async fn get_url(&self, path: impl AsRef<Path> + Send) -> Result<Url, rootcause::Report> {
+        let mut p = self.prefix.clone();
+        p.push(path);
+        Ok(self
+            .bucket
+            .get_item(p.to_str().context("invalid path")?)
+            .await?
+            .parse()
+            .context("invalid url")?)
     }
 }

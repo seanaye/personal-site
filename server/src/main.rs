@@ -1,20 +1,14 @@
-#![allow(dead_code, unused_imports)]
-
-use bucket::{BucketAccess, get_bucket};
-use config::{AppConfig, Config, R2Config};
-use grid::{FromSize, RoundedAspectRatio, Size};
+use crate::bucket::BucketAccess;
+use crate::bucket::get_bucket;
+use crate::config::AppConfig;
+use crate::config::Config;
 use images::{ImageService, adapters::ImmichImageRepository};
-use photo_search::PhotoAccess;
 use photo_share::PhotoShareState;
-use photogrid::{PhotoLayoutData, ResponsivePhotoGrid, SrcSet};
-use serde::{Deserialize, Serialize, de::DeserializeOwned};
+use photogrid::PhotoLayoutData;
+use serde::{Serialize, de::DeserializeOwned};
 use sign::TokenSigner;
-use std::{
-    collections::HashMap,
-    fs::File,
-    io::{Read, Write},
-    sync::Arc,
-};
+use std::path::PathBuf;
+use std::{fs::File, io::Write, sync::Arc};
 use topcoat::{
     asset::{AssetBundle, RouterBuilderAssetExt},
     router::RouterBuilderDirectoryExt,
@@ -65,37 +59,6 @@ async fn photo_share_state(config: &Config) -> Option<Arc<PhotoShareState>> {
     }))
 }
 
-async fn photo_data(r2: &R2Config) -> anyhow::Result<impl Iterator<Item = PhotoLayoutData>> {
-    let bucket = BucketAccess::new(get_bucket(r2)?, "cdn.seanaye.ca");
-
-    let data = bucket.list_resized().await?;
-
-    Ok(data.into_values().filter_map(|mut value| {
-        let first = value.first_mut()?;
-        let metadata = std::mem::take(&mut first.metadata);
-        Some(PhotoLayoutData {
-            srcs: value
-                .into_iter()
-                .map(|c| SrcSet {
-                    dimensions: c.dimension,
-                    url: c.url,
-                })
-                .collect(),
-            metadata,
-            href: None,
-        })
-    }))
-}
-
-fn write_to_file<T>(data: &T)
-where
-    T: Serialize,
-{
-    let mut f = File::create("data.json").unwrap();
-    let s = serde_json::to_string(data).unwrap();
-    f.write_all(s.as_bytes()).unwrap();
-}
-
 fn cached<T>() -> T
 where
     T: DeserializeOwned,
@@ -117,13 +80,21 @@ async fn main() {
     let share_state = photo_share_state(&app_config.inner).await;
     let shared_photos_fetcher = share_state.clone().map(photo_share::shared_photos_fetcher);
     let site_root = std::env::var("SITE_ROOT").unwrap_or_else(|_| "target/site".to_owned());
+    let bucket = BucketAccess::new(
+        get_bucket(&app_config.inner.r2).expect("failed to get bucket"),
+        "cdn.seanaye.ca",
+    );
 
-    let mut router = app::router(photos, shared_photos_fetcher)
-        .serve_dir("/pkg/{*file}", format!("{site_root}/pkg"))
-        .route(static_assets::avatar)
-        .route(static_assets::favicon)
-        .route(static_assets::noise)
-        .route(static_assets::bootstrap);
+    let mut router = app::router(
+        photos,
+        shared_photos_fetcher,
+        bucket.with_prefix(PathBuf::from("/public")),
+    )
+    .serve_dir("/pkg/{*file}", format!("{site_root}/pkg"))
+    .route(static_assets::avatar)
+    .route(static_assets::favicon)
+    .route(static_assets::noise)
+    .route(static_assets::bootstrap);
     if let Some(share_state) = share_state {
         log::info!("photo share enabled at /photo/{{token}} and /image/{{token}}");
         router = router.with(share_state).route(photo_share::image_bytes);

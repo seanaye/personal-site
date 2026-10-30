@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{path::PathBuf, sync::Arc};
 
 use photo_search::SearchFilter;
 use photogrid::PhotoLayoutData;
@@ -8,38 +8,46 @@ use topcoat::{
     Result,
     context::{Cx, context},
     router::{
-        HeaderValue, Router, RouterBuilder, Slot, StatusCode, error::NotFoundError, header, layout,
-        not_found, page, path_param, query_params, request::uri,
+        HeaderValue, Router, RouterBuilder, Slot, StatusCode,
+        error::{NotFoundError, RouterErrorExt, redirect},
+        header, layout, not_found, page, path_param, query_params,
+        request::uri,
     },
     tailwind,
     view::{Child, Unescaped, View, component, error_boundary, view},
 };
 
 pub mod components;
+pub mod domain;
 mod hue;
 pub mod photo_share;
 mod style;
 
 use components::*;
 
+use crate::domain::ports::BucketStorage;
+
 not_found!("/");
 
 /// Build the site's Topcoat router. The server adds its signed image endpoint
 /// and static-file directory before finalizing the builder.
-pub fn router(
+pub fn router<T: BucketStorage>(
     photos: Arc<[PhotoLayoutData]>,
     shared_photos: Option<photo_share::SharedPhotosFetcher>,
+    bucket: T,
 ) -> RouterBuilder {
     let builder = Router::builder()
         .layout(root_layout)
         .page(home_page)
+        .page(file_page::<T>::default())
         .page(blog_page)
         .page(blog_post_page)
         .page(photo_page)
         .page(photo_share::shared_photo_page)
         .page(search_page)
         .page(not_found)
-        .with(photos);
+        .with(photos)
+        .with(bucket);
 
     if let Some(shared_photos) = shared_photos {
         builder.with(shared_photos)
@@ -221,6 +229,17 @@ async fn home_page() -> Result<impl View> {
             )
         </header>
     })
+}
+
+path_param!(*file_path);
+
+#[page("/file/{*file_path}")]
+async fn file_page<T: BucketStorage>(cx: &Cx) -> Result<()> {
+    let slug = path_param::<FilePath>(cx).collect::<PathBuf>();
+    tracing::warn!("{slug:?}");
+    let bucket: &T = context(cx);
+    let url = bucket.get_url(slug).await.ok_or_unauthorized()?;
+    Err(redirect(url).into())
 }
 
 fn markdown_to_html(text: &str) -> String {

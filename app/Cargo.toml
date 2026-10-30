@@ -11,6 +11,8 @@ liquid = { path = "../liquid" }
 photogrid = { path = "../photogrid" }
 grid = { path = "../grid" }
 photo-search = { path = "../photo-search" }
+rootcause.workspace = true
+tracing.workspace = true
 url = "2.5.2"
 pulldown-cmark = "0.12"
 rand = "0.8.5"
@@ -19,6 +21,8 @@ rand = "0.8.5"
 tokio.workspace = true
 
 [build-dependencies]
-topcoat = { git = "https://github.com/seanaye/topcoat", rev = "9a039d010e9fd75ba4f33ef2ed60ea8c04b79a77", default-features = false, features = ["tailwind"] }
+topcoat = { git = "https://github.com/seanaye/topcoat", rev = "9a039d010e9fd75ba4f33ef2ed60ea8c04b79a77", default-features = false, features = [
+  "tailwind",
+] }
 serde = { version = "1", features = ["derive"] }
 toml = "0.8"
