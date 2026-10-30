@@ -6,7 +6,7 @@ use pulldown_cmark::{Options, Parser, html};
 use rand::seq::SliceRandom;
 use topcoat::{
     Result,
-    context::{Cx, app_context},
+    context::{Cx, context},
     router::{
         HeaderValue, Router, RouterBuilder, Slot, StatusCode, error::NotFoundError, header, layout,
         not_found, page, path_param, query_params, request::uri,
@@ -39,10 +39,10 @@ pub fn router(
         .page(photo_share::shared_photo_page)
         .page(search_page)
         .page(not_found)
-        .app_context(photos);
+        .with(photos);
 
     if let Some(shared_photos) = shared_photos {
-        builder.app_context(shared_photos)
+        builder.with(shared_photos)
     } else {
         builder
     }
@@ -385,7 +385,7 @@ async fn search_page(cx: &Cx) -> Result<impl View> {
 
 #[component]
 async fn filtered_photo_grid(cx: &Cx, f: SearchFilter, random: bool) -> Result<impl View> {
-    let data: &Arc<[PhotoLayoutData]> = app_context(cx);
+    let data: &Arc<[PhotoLayoutData]> = context(cx);
     let mut grid = data
         .iter()
         .filter(|photo| f.matches(photo))

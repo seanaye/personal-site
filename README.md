@@ -1,6 +1,8 @@
 # seanaye.ca
 
-Sean Aye's personal site, built with **Topcoat 0.11**, server-rendered Rust components, Tailwind CSS, and WASM web components.
+Sean Aye's personal site, built with the [Topcoat generic-pages fork](https://github.com/seanaye/topcoat/tree/seanaye/feat/generic-pages), server-rendered Rust components, Tailwind CSS, and WASM web components.
+
+The framework and CLI are pinned to commit `9a039d010e9fd75ba4f33ef2ed60ea8c04b79a77`. Keep the pins in `Cargo.toml`, `app/Cargo.toml`, `flake.nix`, and `Dockerfile` synchronized when updating the branch. Generic `#[page]` handlers are registered explicitly with `.page(handler::<State>::default())`; shared state is registered with `.with(state)` and read with `context::<State>(cx)`.
 
 ## Architecture
 
@@ -46,7 +48,13 @@ just server     # Build assets and run the Topcoat server
 
 The server reads `SITE_ROOT` (default `target/site`), `HOST` (default `127.0.0.1`), and `PORT` (default `3000`). Local secrets are loaded from `secrets.example.json` and the gitignored `secrets.json`; see `just decrypt-secrets` when a fresh local file is needed.
 
-Without Nix, install a Rust nightly new enough for Topcoat 0.11, the `wasm32-unknown-unknown` target, `wasm-bindgen-cli` 0.2.126, `topcoat-cli` 0.11, `cargo-watch`, and `just`. Topcoat downloads and caches the pinned Tailwind CLI automatically; no separate Tailwind installation is needed.
+Without Nix, install a Rust nightly new enough for Topcoat, the `wasm32-unknown-unknown` target, `wasm-bindgen-cli` 0.2.130 (matching `Cargo.lock`), `cargo-watch`, and `just`. Install the CLI from the same fork revision:
+
+```sh
+cargo install topcoat-cli --git https://github.com/seanaye/topcoat --rev 9a039d010e9fd75ba4f33ef2ed60ea8c04b79a77 --locked
+```
+
+Topcoat downloads and caches the pinned Tailwind CLI automatically; no separate Tailwind installation is needed.
 
 ## Routes
 

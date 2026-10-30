@@ -9,7 +9,7 @@ use std::{future::Future, pin::Pin, sync::Arc};
 use photogrid::PhotoLayoutData;
 use topcoat::{
     Result,
-    context::{Cx, try_app_context},
+    context::{Cx, try_context},
     router::{HeaderName, HeaderValue, page, path_param, request::headers},
     view::{View, component, suspense, view},
 };
@@ -54,7 +54,7 @@ pub async fn shared_photo_page(cx: &Cx) -> Result<impl View> {
 
 #[component]
 async fn shared_photo_grid(cx: &Cx, token: String) -> Result<impl View> {
-    let fetcher = try_app_context::<SharedPhotosFetcher>(cx).cloned();
+    let fetcher = try_context::<SharedPhotosFetcher>(cx).cloned();
     let result = match fetcher {
         Some(fetcher) => (fetcher.0)(token, headers(cx).clone()).await,
         None => Err("photo sharing is not configured".to_owned()),

@@ -19,6 +19,6 @@ rand = "0.8.5"
 tokio.workspace = true
 
 [build-dependencies]
-topcoat = { version = "0.11.0", default-features = false, features = ["tailwind"] }
+topcoat = { git = "https://github.com/seanaye/topcoat", rev = "9a039d010e9fd75ba4f33ef2ed60ea8c04b79a77", default-features = false, features = ["tailwind"] }
 serde = { version = "1", features = ["derive"] }
 toml = "0.8"

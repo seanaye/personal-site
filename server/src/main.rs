@@ -126,9 +126,7 @@ async fn main() {
         .route(static_assets::bootstrap);
     if let Some(share_state) = share_state {
         log::info!("photo share enabled at /photo/{{token}} and /image/{{token}}");
-        router = router
-            .app_context(share_state)
-            .route(photo_share::image_bytes);
+        router = router.with(share_state).route(photo_share::image_bytes);
     }
 
     let assets = AssetBundle::load()

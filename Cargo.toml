@@ -9,7 +9,8 @@ lto = true
 opt-level = 'z'
 
 [workspace.dependencies]
-topcoat = { version = "0.11.0", default-features = false, features = [
+# seanaye/feat/generic-pages; keep the CLI pin in flake.nix and Dockerfile in sync.
+topcoat = { git = "https://github.com/seanaye/topcoat", rev = "9a039d010e9fd75ba4f33ef2ed60ea8c04b79a77", default-features = false, features = [
   "asset",
   "fs",
   "router",

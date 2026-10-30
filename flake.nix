@@ -7,6 +7,11 @@
     crane.url = "github:ipetkov/crane";
     nix-fast-build.url = "github:Mic92/nix-fast-build";
     nix-fast-build.inputs.nixpkgs.follows = "nixpkgs";
+    # seanaye/feat/generic-pages; match Cargo.toml and app/Cargo.toml.
+    topcoat = {
+      url = "github:seanaye/topcoat/9a039d010e9fd75ba4f33ef2ed60ea8c04b79a77";
+      flake = false;
+    };
   };
   outputs =
     {
@@ -16,6 +21,7 @@
       fenix,
       crane,
       nix-fast-build,
+      topcoat,
     }:
     flake-utils.lib.eachSystem [ "x86_64-linux" "aarch64-darwin" ] (
       system:
@@ -70,25 +76,18 @@
             '';
           };
 
-        # Match the framework and CLI versions used to generate asset catalogs.
-        topcoatCli =
-          let
-            pname = "topcoat-cli";
-            version = "0.11.0";
-            src = pkgs.fetchCrate {
-              inherit pname version;
-              hash = "sha256-x9hEjO3Zx+o/onCwmIAD6uVJ+DJHaJV9KUBnDNFlS5U=";
-            };
-          in
-          craneLib.buildPackage {
-            inherit src;
-            cargoVendorDir = craneLib.vendorCargoDeps { inherit src; };
-            inherit pname version;
-            strictDeps = true;
-            nativeBuildInputs = [ pkgs.pkg-config ];
-            buildInputs = [ pkgs.openssl ];
-            doCheck = false;
-          };
+        # Build the CLI from exactly the same fork revision as the framework.
+        topcoatCli = craneLib.buildPackage {
+          src = topcoat;
+          cargoVendorDir = craneLib.vendorCargoDeps { src = topcoat; };
+          pname = "topcoat-cli";
+          version = "0.11.0";
+          cargoExtraArgs = "-p topcoat-cli --bin topcoat --bin cargo-topcoat";
+          strictDeps = true;
+          nativeBuildInputs = [ pkgs.pkg-config ];
+          buildInputs = [ pkgs.openssl ];
+          doCheck = false;
+        };
 
         # Use nixpkgs' Node-free Tailwind 4 package for hermetic builds.
         tailwindCli = pkgs.tailwindcss_4;

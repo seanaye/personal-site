@@ -19,7 +19,7 @@ use images::{
 };
 use photogrid::{PhotoLayoutData, SrcSet};
 use topcoat::{
-    context::{Cx, app_context},
+    context::{Cx, context},
     router::{
         Body, HeaderValue, StatusCode, error::bad_request, header, path_param, query_params,
         response::Response, route,
@@ -54,7 +54,7 @@ fn text_response(status: StatusCode, text: &'static str) -> Response {
 
 #[route(GET "/image/{token}")]
 pub async fn image_bytes(cx: &Cx) -> topcoat::Result<Response> {
-    let state: &Arc<PhotoShareState> = app_context(cx);
+    let state: &Arc<PhotoShareState> = context(cx);
     let token = path_param::<Token>(cx);
     let Ok(Claims::Image { id }) = state.signer.verify(token) else {
         return Ok(text_response(StatusCode::FORBIDDEN, "invalid image token"));
