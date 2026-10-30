@@ -13,7 +13,7 @@ http.workspace = true
 http-body.workspace = true
 http-body-util.workspace = true
 
-rust-s3 = "0.35.1"
+rust-s3 = "0.37"
 anyhow = "1.0.87"
 base64 = "0.22"
 chrono = "0.4"

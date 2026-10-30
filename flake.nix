@@ -17,7 +17,7 @@
       crane,
       nix-fast-build,
     }:
-    flake-utils.lib.eachDefaultSystem (
+    flake-utils.lib.eachSystem [ "x86_64-linux" "aarch64-darwin" ] (
       system:
       let
         pkgs = import nixpkgs { inherit system; };
@@ -41,23 +41,15 @@
         # which can fail when crates.io blocks bulk API downloads with 403s.
         wasmBindgenCli =
           let
-            version = "0.2.126";
+            version = "0.2.130";
             targets = {
               x86_64-linux = {
                 target = "x86_64-unknown-linux-musl";
-                hash = "sha256-BklI1Y4tbAp0UhZHemObppYhbWMJqqkCk50bhlsdhp0=";
-              };
-              aarch64-linux = {
-                target = "aarch64-unknown-linux-musl";
-                hash = "sha256-IkUSAlSp9smprfNgHz1SuzEwkhnpzqt2ludOJIhcRAo=";
-              };
-              x86_64-darwin = {
-                target = "x86_64-apple-darwin";
-                hash = "sha256-YBTcqZPIv4puwQtvzPvqv1mYQtAR9YpKu3Zpr+94RCI=";
+                hash = "sha256-lofzu1Ubn2bzftMqQNeROgD3li22UwVOVoV7wwbDIn8=";
               };
               aarch64-darwin = {
                 target = "aarch64-apple-darwin";
-                hash = "sha256-ffU2ur40XetogoFI29xxF5EYr9q0LYNUfHzr+/FCa9U=";
+                hash = "sha256-uQ3bk1f1hLGviX1YrXfkzOK0j8F+KpZ7wkmof3KAlEQ=";
               };
             };
             targetInfo = targets.${system};
@@ -104,17 +96,17 @@
         # Cargo sources plus the static assets, shaders, and content read at build time.
         src =
           let
-            siteFilter = path: type:
-              (builtins.match ".*/public(/.*)?" path != null) ||
-              (builtins.match ".*/blog(/.*)?" path != null) ||
-              (builtins.match ".*/app/src/content(/.*)?" path != null) ||
-              (builtins.match ".*/immich-sdk/openapi(/.*)?" path != null) ||
-              (builtins.match ".*/app/tailwind.css$" path != null) ||
-              (builtins.match ".*/data.json$" path != null) ||
-              (builtins.match ".*/frontend/src/.*\\.js$" path != null) ||
-              (builtins.match ".*/frontend/src/.*\\.wgsl$" path != null);
-            srcFilter = path: type:
-              (siteFilter path type) || (craneLib.filterCargoSources path type);
+            siteFilter =
+              path: type:
+              (builtins.match ".*/public(/.*)?" path != null)
+              || (builtins.match ".*/blog(/.*)?" path != null)
+              || (builtins.match ".*/app/src/content(/.*)?" path != null)
+              || (builtins.match ".*/immich-sdk/openapi(/.*)?" path != null)
+              || (builtins.match ".*/app/tailwind.css$" path != null)
+              || (builtins.match ".*/data.json$" path != null)
+              || (builtins.match ".*/frontend/src/.*\\.js$" path != null)
+              || (builtins.match ".*/frontend/src/.*\\.wgsl$" path != null);
+            srcFilter = path: type: (siteFilter path type) || (craneLib.filterCargoSources path type);
           in
           pkgs.lib.cleanSourceWith {
             src = ./.;
@@ -140,70 +132,79 @@
 
         cargoArtifacts = craneLib.buildDepsOnly commonArgs;
 
-        clippy = craneLib.cargoClippy (buildArgs // {
-          inherit cargoArtifacts;
-          cargoClippyExtraArgs = "--workspace -- -Dwarnings";
-        });
+        clippy = craneLib.cargoClippy (
+          buildArgs
+          // {
+            inherit cargoArtifacts;
+            cargoClippyExtraArgs = "--workspace -- -Dwarnings";
+          }
+        );
 
         fmt = craneLib.cargoFmt commonArgs;
 
-        nextestArchive = craneLib.mkCargoDerivation (buildArgs // {
-          inherit cargoArtifacts;
-          pname = "personal-site-nextest-archive";
-          doInstallCargoArtifacts = false;
-          nativeBuildInputs = commonArgs.nativeBuildInputs ++ [ pkgs.cargo-nextest ];
-          buildPhaseCargoCommand = ''
-            mkdir -p $out
-            cargo nextest archive --workspace --archive-file $out/archive.tar.zst
-          '';
-          doCheck = false;
-        });
+        nextestArchive = craneLib.mkCargoDerivation (
+          buildArgs
+          // {
+            inherit cargoArtifacts;
+            pname = "personal-site-nextest-archive";
+            doInstallCargoArtifacts = false;
+            nativeBuildInputs = commonArgs.nativeBuildInputs ++ [ pkgs.cargo-nextest ];
+            buildPhaseCargoCommand = ''
+              mkdir -p $out
+              cargo nextest archive --workspace --archive-file $out/archive.tar.zst
+            '';
+            doCheck = false;
+          }
+        );
 
-        personalSite = craneLib.mkCargoDerivation (buildArgs // {
-          inherit cargoArtifacts;
-          doInstallCargoArtifacts = false;
-          nativeBuildInputs = commonArgs.nativeBuildInputs ++ [
-            topcoatCli
-            tailwindCli
-            wasmBindgenCli
-          ];
-          buildPhaseCargoCommand = ''
-            cargo build --release -p server
-            cargo build --release -p frontend --target wasm32-unknown-unknown
+        personalSite = craneLib.mkCargoDerivation (
+          buildArgs
+          // {
+            inherit cargoArtifacts;
+            doInstallCargoArtifacts = false;
+            nativeBuildInputs = commonArgs.nativeBuildInputs ++ [
+              topcoatCli
+              tailwindCli
+              wasmBindgenCli
+            ];
+            buildPhaseCargoCommand = ''
+              cargo build --release -p server
+              cargo build --release -p frontend --target wasm32-unknown-unknown
 
-            mkdir -p target/site/pkg
-            cp -r public/. target/site/
-            wasm-bindgen \
-              --target web \
-              --out-dir target/site/pkg \
-              --out-name frontend \
-              target/wasm32-unknown-unknown/release/frontend.wasm
-            topcoat asset bundle --release --package server
-          '';
-          installPhaseCommand = ''
-            mkdir -p $out/bin $out/site
+              mkdir -p target/site/pkg
+              cp -r public/. target/site/
+              wasm-bindgen \
+                --target web \
+                --out-dir target/site/pkg \
+                --out-name frontend \
+                target/wasm32-unknown-unknown/release/frontend.wasm
+              topcoat asset bundle --release --package server
+            '';
+            installPhaseCommand = ''
+              mkdir -p $out/bin $out/site
 
-            for candidate in \
-              target/release/personal_site \
-              target/release/server
-            do
-              if [ -x "$candidate" ]; then
-                cp "$candidate" $out/bin/personal_site
-                break
+              for candidate in \
+                target/release/personal_site \
+                target/release/server
+              do
+                if [ -x "$candidate" ]; then
+                  cp "$candidate" $out/bin/personal_site
+                  break
+                fi
+              done
+
+              if [ ! -x $out/bin/personal_site ]; then
+                echo "error: server binary not found" >&2
+                find target -maxdepth 4 -type f -perm -0100 -print >&2 || true
+                exit 1
               fi
-            done
 
-            if [ ! -x $out/bin/personal_site ]; then
-              echo "error: server binary not found" >&2
-              find target -maxdepth 4 -type f -perm -0100 -print >&2 || true
-              exit 1
-            fi
-
-            cp -r target/site/. $out/site/
-            cp -r target/release/assets $out/bin/assets
-          '';
-          doCheck = false;
-        });
+              cp -r target/site/. $out/site/
+              cp -r target/release/assets $out/bin/assets
+            '';
+            doCheck = false;
+          }
+        );
 
         # Encrypted secrets file (as a derivation so it can be included in the image)
         secretsEncFile = ./secrets.enc.json;
@@ -247,13 +248,22 @@
               "HOST=0.0.0.0"
               "PORT=8080"
             ];
-            ExposedPorts = { "8080/tcp" = { }; };
+            ExposedPorts = {
+              "8080/tcp" = { };
+            };
           };
         };
       in
       {
         packages = {
-          inherit personalSite personalSiteImg cargoArtifacts nextestArchive clippy fmt;
+          inherit
+            personalSite
+            personalSiteImg
+            cargoArtifacts
+            nextestArchive
+            clippy
+            fmt
+            ;
           nix-fast-build = nix-fast-build.packages.${system}.default;
           default = personalSite;
         };
