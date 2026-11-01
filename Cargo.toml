@@ -38,6 +38,12 @@ http-body = "1"
 http-body-util = "0.1"
 log = "0.4.20"
 rootcause = "0.13"
+# Keep S3 clients on rustls across the workspace; default features enable OpenSSL.
+rust-s3 = { version = "0.37", default-features = false, features = [
+  "tokio-rustls-tls",
+  "fail-on-err",
+  "tags",
+] }
 simple_logger = "4.2.0"
 thiserror = "1"
 tokio = { version = "1.33.0", features = ["full"] }

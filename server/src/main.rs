@@ -88,7 +88,7 @@ async fn main() {
     let mut router = app::router(
         photos,
         shared_photos_fetcher,
-        bucket.with_prefix(PathBuf::from("/public")),
+        bucket.with_prefix(PathBuf::from("public")),
     )
     .serve_dir("/pkg/{*file}", format!("{site_root}/pkg"))
     .route(static_assets::avatar)

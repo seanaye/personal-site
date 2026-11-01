@@ -85,7 +85,6 @@
           cargoExtraArgs = "-p topcoat-cli --bin topcoat --bin cargo-topcoat";
           strictDeps = true;
           nativeBuildInputs = [ pkgs.pkg-config ];
-          buildInputs = [ pkgs.openssl ];
           doCheck = false;
         };
 
@@ -120,7 +119,6 @@
           version = "0.1.0";
           strictDeps = true;
           nativeBuildInputs = [ pkgs.pkg-config ];
-          buildInputs = [ pkgs.openssl ];
           RUSTFLAGS = "--remap-path-prefix=${cargoVendorDir}=/cargo-vendor --remap-path-prefix=${rustToolchain}=/rust-toolchain";
           TAILWIND_CLI = "${tailwindCli}/bin/tailwindcss";
         };
@@ -286,16 +284,10 @@
             tailwindCli
             wasmBindgenCli
             pkg-config
-            openssl
             taplo
             sops
           ];
           TAILWIND_CLI = "${tailwindCli}/bin/tailwindcss";
-          # Topcoat launches the binary directly, without Cargo's native-library
-          # search paths. rust-s3/native-tls needs OpenSSL at runtime on Linux.
-          shellHook = pkgs.lib.optionalString pkgs.stdenv.hostPlatform.isLinux ''
-            export LD_LIBRARY_PATH="${pkgs.lib.makeLibraryPath [ pkgs.openssl ]}''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
-          '';
         };
       }
     );

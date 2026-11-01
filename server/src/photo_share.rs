@@ -69,8 +69,6 @@ pub async fn image_bytes(cx: &Cx) -> topcoat::Result<Response> {
             let stream = image_bytes.stream.map(|chunk| chunk.map(Frame::data));
             let body = Body::new(StreamBody::new(stream));
 
-            // A signed URL is the access credential and its rendition never
-            // changes, so shared caches can retain it indefinitely.
             let mut response = Response::builder().status(StatusCode::OK).header(
                 header::CACHE_CONTROL,
                 HeaderValue::from_static("public, max-age=31536000, immutable"),
@@ -159,7 +157,9 @@ fn photo_layout_data(
         url
     };
     let preview = sized("preview");
-    let fullsize = sized("fullsize");
+    let mut fullsize = sized("fullsize");
+    // Bypass previews previously cached under the original full-size URL.
+    fullsize.query_pairs_mut().append_pair("v", "2");
 
     let srcs: Vec<SrcSet> = image
         .variants

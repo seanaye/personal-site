@@ -1,16 +1,13 @@
 use app::domain::ports::BucketStorage;
 use futures::{StreamExt, stream};
-use grid::{AspectRatio, Dimension};
+use grid::Dimension;
 use itertools::Itertools;
 use list_bucket::{FlattenResult, ListRecursive};
 use rootcause::{option_ext::OptionExt, prelude::*};
-use s3::{
-    Region, bucket::Bucket, creds::Credentials, error::S3Error, serde_types::ListBucketResult,
-};
+use s3::{Region, bucket::Bucket, creds::Credentials, error::S3Error};
 use std::{
-    borrow::Cow,
     collections::HashMap,
-    path::{Path, PathBuf},
+    path::{Component, Path, PathBuf},
 };
 use url::Url;
 
@@ -54,9 +51,18 @@ impl<'a> BucketAccess<'a> {
         Self { bucket, host }
     }
 
+    /// Public object URL; signing credentials are not used for CDN downloads.
     pub async fn get_item(&self, item: &str) -> rootcause::Result<String> {
-        let res = self.bucket.presign_get(item, 86400, None).await?;
-        Ok(res)
+        let mut url =
+            Url::parse(&format!("https://{}/", self.host)).context("invalid public bucket host")?;
+        // Treat keys as path segments, not URL syntax. Spaces, %, ?, and #
+        // remain part of the object key rather than changing the destination.
+        url.path_segments_mut()
+            .ok()
+            .context("invalid public bucket base URL")?
+            .clear()
+            .extend(item.split('/'));
+        Ok(url.into())
     }
 
     pub async fn list_resized(&self) -> rootcause::Result<HashMap<String, Vec<ResizedImage>>> {
@@ -112,6 +118,14 @@ pub struct BucketLister<'a> {
 
 impl BucketStorage for BucketLister<'static> {
     async fn get_url(&self, path: impl AsRef<Path> + Send) -> Result<Url, rootcause::Report> {
+        let path = path.as_ref();
+        (!path.as_os_str().is_empty()
+            && path
+                .components()
+                .all(|part| matches!(part, Component::Normal(_))))
+        .then_some(())
+        .context("file path must be relative and stay within the public prefix")?;
+
         let mut p = self.prefix.clone();
         p.push(path);
         Ok(self

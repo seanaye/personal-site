@@ -13,6 +13,8 @@ The framework and CLI are pinned to commit `9a039d010e9fd75ba4f33ef2ed60ea8c04b7
 - `grid/`, `photogrid/`, `photo-search/` — responsive photo layout and filtering.
 - `images/`, `immich-sdk/`, `dumbpipe-client/` — Immich photo integration.
 
+HTTP clients use rustls, including the shared `rust-s3` dependency. The server does not require OpenSSL libraries or a runtime library-path override.
+
 The browser registers these light-DOM custom elements over server-rendered markup:
 
 - `<liquid-canvas>` owns the WGPU canvas, animation, resizing, and droplet input.
@@ -64,6 +66,13 @@ Topcoat downloads and caches the pinned Tailwind CLI automatically; no separate 
 - `/search?a=...&b=...&r=...` — filtered photo grid
 - `/photo/{token}` — signed shared-photo page
 - `/image/{token}?size=thumbnail|preview|fullsize` — signed streaming image bytes
+- `/file/{path...}` — unsigned redirect to `https://cdn.seanaye.ca/public/{path...}`
+
+## Full-size photos
+
+Immich generates full-size renditions with `image.fullsize.enabled`, including for new RAW imports. Existing images can be backfilled using Immich's bulk thumbnail-regeneration job; previews remain at 1440px on the short edge.
+
+Clicking a shared photo opens its already-generated full-size image in a new tab through the signed image endpoint. The site never submits generation jobs or polls job status. Until an asset is processed, Immich may return its preview instead. Full-size links use a refreshed cache key and a five-minute cache lifetime so old preview fallbacks are not retained indefinitely.
 
 ## Verification
 
