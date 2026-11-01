@@ -74,7 +74,7 @@ async fn root_layout(cx: &Cx, slot: Slot<'_>) -> Result<impl View> {
                 <meta charset="utf-8">
                 <meta name="viewport" content="width=device-width, initial-scale=1">
                 <title>(title)</title>
-                <link id="topcoat" rel="stylesheet" href=(tailwind::stylesheet!())>
+                <link id="site-css" rel="stylesheet" href=(tailwind::stylesheet!())>
                 <script type="module" src="/bootstrap.js"></script>
             </head>
             <body>
