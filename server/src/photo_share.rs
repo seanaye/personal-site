@@ -1,13 +1,13 @@
 //! Signed photo-sharing infrastructure.
 //!
-//! - [`shared_photos_fetcher`] resolves `/photo/{token}` pages into photogrid
+//! - [`PhotoShareState`] resolves `/photo/{token}` pages into photogrid
 //!   layout data with signed image URLs.
 //! - `GET /image/{token}?size={thumbnail|preview|fullsize}` streams raw image
 //!   bytes from Immich through a Topcoat response body.
 
 use std::{collections::HashMap, sync::Arc};
 
-use app::photo_share::SharedPhotosFetcher;
+use app::domain::ports::SharedPhotosFetcher;
 use chrono::DateTime;
 use futures::StreamExt;
 use grid::Dimension;
@@ -88,38 +88,37 @@ pub async fn image_bytes(cx: &Cx) -> topcoat::Result<Response> {
     }
 }
 
-/// Build the fetcher consumed by the Topcoat share page. Error strings are
-/// user-facing at this boundary; internal details are logged instead.
-pub fn shared_photos_fetcher(state: Arc<PhotoShareState>) -> SharedPhotosFetcher {
-    SharedPhotosFetcher(Arc::new(move |token, headers| {
-        let state = state.clone();
-        Box::pin(async move {
-            let Ok(Claims::PhotoRange { after, before }) = state.signer.verify(&token) else {
-                return Err("invalid share token".to_owned());
-            };
+impl SharedPhotosFetcher for PhotoShareState {
+    async fn fetch(
+        &self,
+        token: String,
+        headers: http::HeaderMap,
+    ) -> Result<Vec<PhotoLayoutData>, String> {
+        let Ok(Claims::PhotoRange { after, before }) = self.signer.verify(&token) else {
+            return Err("invalid share token".to_owned());
+        };
 
-            let range = ImageDateRange::new(
-                after.and_then(|secs| DateTime::from_timestamp(secs, 0)),
-                before.and_then(|secs| DateTime::from_timestamp(secs, 0)),
-            );
+        let range = ImageDateRange::new(
+            after.and_then(|secs| DateTime::from_timestamp(secs, 0)),
+            before.and_then(|secs| DateTime::from_timestamp(secs, 0)),
+        );
 
-            let base_url = base_url(&state, &headers)?;
+        let base_url = base_url(self, &headers)?;
 
-            let images = state
-                .service
-                .images_taken_in(range)
-                .await
-                .map_err(|error| {
-                    log::error!("failed to fetch shared photos from Immich: {error}");
-                    "failed to fetch photos".to_owned()
-                })?;
+        let images = self
+            .service
+            .images_taken_in(range)
+            .await
+            .map_err(|error| {
+                log::error!("failed to fetch shared photos from Immich: {error}");
+                "failed to fetch photos".to_owned()
+            })?;
 
-            Ok(images
-                .iter()
-                .filter_map(|image| photo_layout_data(image, &base_url, &state.signer))
-                .collect())
-        })
-    }))
+        Ok(images
+            .iter()
+            .filter_map(|image| photo_layout_data(image, &base_url, &self.signer))
+            .collect())
+    }
 }
 
 /// Resolve the absolute base URL that signed image URLs should be joined onto.

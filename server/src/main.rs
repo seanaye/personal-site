@@ -77,7 +77,6 @@ async fn main() {
     let photos: Arc<[PhotoLayoutData]> = Arc::from(data);
 
     let share_state = photo_share_state(&app_config.inner).await;
-    let shared_photos_fetcher = share_state.clone().map(photo_share::shared_photos_fetcher);
     let site_root = std::env::var("SITE_ROOT").unwrap_or_else(|_| "target/site".to_owned());
     let bucket = BucketAccess::new(
         get_bucket(&app_config.inner.r2).expect("failed to get bucket"),
@@ -86,10 +85,11 @@ async fn main() {
 
     let mut router = app::router(
         photos,
-        shared_photos_fetcher,
+        share_state.clone(),
         bucket.with_prefix(PathBuf::from("public")),
     )
     .serve_dir("/pkg/{*file}", format!("{site_root}/pkg"));
+
     if let Some(share_state) = share_state {
         log::info!("photo share enabled at /photo/{{token}} and /image/{{token}}");
         router = router.with(share_state).route(photo_share::image_bytes);

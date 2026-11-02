@@ -4,9 +4,7 @@
 //! async grid component resolves the token directly during SSR, while Topcoat
 //! streams the page shell before the Immich request completes.
 
-use std::{future::Future, pin::Pin, sync::Arc};
-
-use photogrid::PhotoLayoutData;
+use std::sync::Arc;
 use topcoat::{
     Result,
     context::{Cx, try_context},
@@ -14,23 +12,14 @@ use topcoat::{
     view::{View, component, suspense, view},
 };
 
-use crate::{components::photo_grid_component, layout_content};
-
-pub type SharedPhotosFuture =
-    Pin<Box<dyn Future<Output = Result<Vec<PhotoLayoutData>, String>> + Send>>;
-
-/// Server-side port that resolves a share token and request headers into
-/// photogrid layout data. Error strings are logged by the server; visitors see
-/// a generic unavailable message.
-#[derive(Clone)]
-pub struct SharedPhotosFetcher(
-    pub Arc<dyn Fn(String, http::HeaderMap) -> SharedPhotosFuture + Send + Sync>,
-);
+use crate::{
+    components::photo_grid_component, domain::ports::SharedPhotosFetcher, layout_content,
+};
 
 path_param!(token);
 
 #[page("/photo/{token}")]
-pub async fn shared_photo_page(cx: &Cx) -> Result<impl View> {
+pub async fn shared_photo_page<S: SharedPhotosFetcher>(cx: &Cx) -> Result<impl View> {
     let token = path_param::<Token>(cx).to_owned();
 
     Ok(view! {
@@ -44,7 +33,7 @@ pub async fn shared_photo_page(cx: &Cx) -> Result<impl View> {
                     </p>
                     suspense(
                         fallback: view! { "" },
-                        shared_photo_grid(token: token)
+                        shared_photo_grid::<S>(token: token)
                     )
                 </div>
             )
@@ -53,10 +42,10 @@ pub async fn shared_photo_page(cx: &Cx) -> Result<impl View> {
 }
 
 #[component]
-async fn shared_photo_grid(cx: &Cx, token: String) -> Result<impl View> {
-    let fetcher = try_context::<SharedPhotosFetcher>(cx).cloned();
+async fn shared_photo_grid<S: SharedPhotosFetcher>(cx: &Cx, token: String) -> Result<impl View> {
+    let fetcher = try_context::<Arc<S>>(cx);
     let result = match fetcher {
-        Some(fetcher) => (fetcher.0)(token, headers(cx).clone()).await,
+        Some(fetcher) => fetcher.fetch(token, headers(cx).clone()).await,
         None => Err("photo sharing is not configured".to_owned()),
     };
 

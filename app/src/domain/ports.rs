@@ -1,3 +1,7 @@
+mod photo_share;
+
+pub use photo_share::SharedPhotosFetcher;
+
 use std::path::Path;
 use url::Url;
 

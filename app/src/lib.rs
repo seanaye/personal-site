@@ -26,15 +26,15 @@ mod style;
 
 use components::*;
 
-use crate::domain::ports::BucketStorage;
+use crate::domain::ports::{BucketStorage, SharedPhotosFetcher};
 
 not_found!("/");
 
 /// Build the site's Topcoat router. The server adds its signed image endpoint
 /// and static-file directory before finalizing the builder.
-pub fn router<T: BucketStorage>(
+pub fn router<T: BucketStorage, S: SharedPhotosFetcher>(
     photos: Arc<[PhotoLayoutData]>,
-    shared_photos: Option<photo_share::SharedPhotosFetcher>,
+    shared_photos: Option<Arc<S>>,
     bucket: T,
 ) -> RouterBuilder {
     let builder = Router::builder()
@@ -44,7 +44,7 @@ pub fn router<T: BucketStorage>(
         .page(blog_page)
         .page(blog_post_page)
         .page(photo_page)
-        .page(photo_share::shared_photo_page)
+        .page(photo_share::shared_photo_page::<S>::default())
         .page(search_page)
         .page(not_found)
         .with(photos)
