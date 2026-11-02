@@ -6,7 +6,7 @@ use topcoat::{
 };
 use url::Url;
 
-use crate::style::*;
+use crate::web::style::*;
 
 #[component]
 pub async fn photo_grid_component(data: Vec<PhotoLayoutData>) -> Result<impl View> {

@@ -2,8 +2,8 @@ use std::{collections::HashMap, future::Future};
 
 use chrono::{DateTime, Utc};
 
-use crate::{
-    domain::{Image, ImageBytes, ImageCursor, ImageDateRange, ImageId, ImagePage, ImageSize},
+use crate::domain::{
+    models::{Image, ImageBytes, ImageCursor, ImageDateRange, ImageId, ImagePage, ImageSize},
     ports::ImageRepository,
 };
 

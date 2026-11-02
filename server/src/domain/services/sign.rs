@@ -6,32 +6,11 @@
 
 use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD};
 use hmac::{Hmac, Mac};
-use serde::{Deserialize, Serialize};
 use sha2::Sha256;
 
+use crate::domain::models::{Claims, TokenError};
+
 type HmacSha256 = Hmac<Sha256>;
-
-/// What a signed token grants access to.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(tag = "kind", rename_all = "snake_case")]
-pub enum Claims {
-    /// Access to the photos taken within a unix-timestamp (seconds) range.
-    /// `None` bounds are unbounded on that side.
-    PhotoRange {
-        after: Option<i64>,
-        before: Option<i64>,
-    },
-    /// Access to the bytes of a single image.
-    Image { id: String },
-}
-
-#[derive(Debug, thiserror::Error)]
-pub enum TokenError {
-    #[error("token is malformed")]
-    Malformed,
-    #[error("token signature is invalid")]
-    InvalidSignature,
-}
 
 /// Mints and verifies signed tokens with an HMAC-SHA256 secret.
 #[derive(Clone)]

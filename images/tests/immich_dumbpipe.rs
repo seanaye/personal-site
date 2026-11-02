@@ -1,6 +1,6 @@
 use dumbpipe_client::{DumbpipeTunnel, EndpointTicket, TunnelConfig};
 use futures::TryStreamExt;
-use images::{adapters::ImmichImageRepository, ImageService, ImageSize};
+use images::{outbound::ImmichImageRepository, ImageService, ImageSize};
 use immich_sdk::{types::AssetMediaSize, Client, Error};
 use reqwest::header::{HeaderMap, HeaderValue};
 use uuid::Uuid;

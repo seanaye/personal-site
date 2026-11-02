@@ -1,20 +1,16 @@
 //! Server-side image library.
 //!
-//! This crate is organized as a small hexagonal architecture:
-//!
-//! - [`domain`] contains the core image types.
-//! - [`ports`] defines the traits the application depends on.
-//! - [`application`] contains use cases built from those ports.
-//! - [`adapters`] contains infrastructure implementations.
+//! - [`domain::models`] contains the core image types.
+//! - [`domain::ports`] defines the repository contract.
+//! - [`domain::services`] contains use cases built from that port.
+//! - [`outbound`] contains infrastructure implementations.
 
-pub mod adapters;
-pub mod application;
 pub mod domain;
-pub mod ports;
+pub mod outbound;
 
-pub use application::ImageService;
-pub use domain::{
+pub use domain::models::{
     Image, ImageByteStream, ImageBytes, ImageCursor, ImageDateRange, ImageDimensions, ImageError,
     ImageId, ImageMetadata, ImagePage, ImageSize, ImageVariant,
 };
-pub use ports::ImageRepository;
+pub use domain::ports::ImageRepository;
+pub use domain::services::ImageService;

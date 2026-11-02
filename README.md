@@ -6,12 +6,16 @@ The framework and CLI are pinned to commit `9a039d010e9fd75ba4f33ef2ed60ea8c04b7
 
 ## Architecture
 
-- `app/` — Topcoat pages, layouts, components, Markdown rendering, photo grids, and route setup.
-- `server/` — HTTP server, configuration, signed photo sharing, streaming image responses, and static assets.
+- `app/src/domain/` — blog models/services and the bucket-storage and shared-photo ports.
+- `app/src/web/` and `app/src/web.rs` — Topcoat pages, layouts, components, Markdown rendering, photo grids, and route setup.
+- `server/src/domain/` — token claims and signing; `inbound/` — streaming image HTTP handler; `outbound/` — bucket and shared-photo adapters. `main.rs` wires the concrete adapters, configuration, and static assets.
 - `frontend/` — `wasm-bindgen` browser controllers and the WGPU droplet renderer.
 - `liquid/` — palette generation, color calculations, and liquid event types shared by SSR and WASM.
 - `grid/`, `photogrid/`, `photo-search/` — responsive photo layout and filtering.
-- `images/`, `immich-sdk/`, `dumbpipe-client/` — Immich photo integration.
+- `images/src/domain/` — image models, repository port, and generic image service; `images/src/outbound/` — Immich and in-memory adapters.
+- `immich-sdk/`, `dumbpipe-client/` — Immich HTTP client and tunnel transport.
+
+Ports use `impl Future + Send` and generic consumers rather than trait objects or boxed futures. `SharedPhotosFetcher` is implemented by `ImmichSharedPhotosFetcher` and selected when constructing the web router. Image byte streams remain boxed.
 
 HTTP clients use rustls, including the shared `rust-s3` dependency. The server does not require OpenSSL libraries or a runtime library-path override.
 

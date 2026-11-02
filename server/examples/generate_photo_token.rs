@@ -7,15 +7,10 @@
 //! Either bound may be `-` to leave it unbounded. Prints the `/photo/{token}`
 //! path to stdout.
 
-#[path = "../src/config.rs"]
-#[allow(dead_code)]
-mod config;
-#[path = "../src/sign.rs"]
-#[allow(dead_code)]
-mod sign;
-
-use config::AppConfig;
-use sign::{Claims, TokenSigner};
+use server::{
+    config::AppConfig,
+    domain::{models::Claims, services::sign::TokenSigner},
+};
 
 fn parse_bound(arg: Option<&str>, name: &str) -> Option<i64> {
     match arg {

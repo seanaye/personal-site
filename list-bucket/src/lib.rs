@@ -1,50 +1,50 @@
-use async_recursion::async_recursion;
 use futures::{stream, StreamExt};
 use s3::{
     error::S3Error,
     serde_types::{ListBucketResult, Object},
     Bucket,
 };
+use std::future::Future;
 
-#[async_trait::async_trait]
 pub trait ListRecursive {
-    async fn list_recursive(
+    fn list_recursive(
         &self,
         prefix: String,
         delimiter: Option<String>,
-    ) -> Result<Vec<ListBucketResult>, S3Error>;
+    ) -> impl Future<Output = Result<Vec<ListBucketResult>, S3Error>> + Send;
 }
 
 impl ListRecursive for Bucket {
-    #[async_recursion]
-    async fn list_recursive(
+    fn list_recursive(
         &self,
         prefix: String,
         delimiter: Option<String>,
-    ) -> Result<Vec<ListBucketResult>, S3Error> {
-        let mut res = self.list(prefix, delimiter.clone()).await?;
+    ) -> impl Future<Output = Result<Vec<ListBucketResult>, S3Error>> + Send {
+        async move {
+            let mut res = self.list(prefix, delimiter.clone()).await?;
 
-        let common: Vec<_> = res
-            .iter_mut()
-            .flat_map(|r| {
-                r.common_prefixes
-                    .iter_mut()
-                    .flat_map(|v| v.iter_mut())
-                    .map(|v| std::mem::take(&mut v.prefix))
-            })
-            .collect();
-        stream::iter(common)
-            .then(|prefix| {
-                let delimiter = delimiter.clone();
-                async move { self.list_recursive(prefix, delimiter).await }
-            })
-            .collect::<Vec<_>>()
-            .await
-            .into_iter()
-            .try_fold(res, |mut acc, cur| {
-                acc.extend(cur?);
-                Ok(acc)
-            })
+            let common: Vec<_> = res
+                .iter_mut()
+                .flat_map(|r| {
+                    r.common_prefixes
+                        .iter_mut()
+                        .flat_map(|v| v.iter_mut())
+                        .map(|v| std::mem::take(&mut v.prefix))
+                })
+                .collect();
+            stream::iter(common)
+                .then(|prefix| {
+                    let delimiter = delimiter.clone();
+                    async move { Box::pin(self.list_recursive(prefix, delimiter)).await }
+                })
+                .collect::<Vec<_>>()
+                .await
+                .into_iter()
+                .try_fold(res, |mut acc, cur| {
+                    acc.extend(cur?);
+                    Ok(acc)
+                })
+        }
     }
 }
 

@@ -107,7 +107,7 @@ fn main() {
 
     posts.sort_by(|a, b| b.slug.cmp(&a.slug));
 
-    let mut output = String::from("static BLOG_POSTS: &[BlogPost] = &[\n");
+    let mut output = String::from("pub(crate) static BLOG_POSTS: &[BlogPost] = &[\n");
     for post in posts {
         output.push_str("    BlogPost {\n");
         output.push_str(&format!("        slug: {},\n", rust_string(post.slug)));

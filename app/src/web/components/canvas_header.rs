@@ -8,7 +8,7 @@ use topcoat::{
     view::{Child, View, component, view},
 };
 
-use crate::hue::{initial_palette, initial_slider_value};
+use crate::web::hue::{initial_palette, initial_slider_value};
 
 fn poline_text_style() -> &'static str {
     "color: var(--poline-text-color, white); accent-color: var(--poline-text-color, white); text-shadow: 0 1px 2px var(--poline-text-shadow, rgba(0, 0, 0, 0.55));"

@@ -1,6 +1,6 @@
 use std::future::Future;
 
-use crate::domain::{ImageBytes, ImageCursor, ImageDateRange, ImageId, ImagePage, ImageSize};
+use crate::domain::models::{ImageBytes, ImageCursor, ImageDateRange, ImageId, ImagePage, ImageSize};
 
 /// Outbound port for whatever storage backend can fetch website images.
 pub trait ImageRepository {

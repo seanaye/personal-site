@@ -1,29 +1,24 @@
-use crate::bucket::BucketAccess;
-use crate::bucket::get_bucket;
-use crate::config::AppConfig;
-use crate::config::Config;
-use images::{ImageService, adapters::ImmichImageRepository};
-use photo_share::PhotoShareState;
+use server::config::{AppConfig, Config};
+use server::domain::services::sign::TokenSigner;
+use server::inbound;
+use server::outbound::{
+    bucket::{BucketAccess, get_bucket},
+    photo_share::ImmichSharedPhotosFetcher,
+};
+use images::{ImageService, outbound::ImmichImageRepository};
 use photogrid::PhotoLayoutData;
-use serde::{Serialize, de::DeserializeOwned};
-use sign::TokenSigner;
-use std::path::PathBuf;
-use std::{fs::File, io::Write, sync::Arc};
+use serde::de::DeserializeOwned;
+use std::{path::PathBuf, sync::Arc};
 use topcoat::{
     asset::{AssetBundle, RouterBuilderAssetExt},
     router::RouterBuilderDirectoryExt,
 };
 
-mod bucket;
-mod config;
-mod photo_share;
-mod sign;
-
 /// Build the photo-share state from the app configuration.
 ///
 /// Returns `None` (and logs why) when Immich is unreachable or the config
 /// still holds placeholder values (e.g. local dev without `secrets.json`).
-async fn photo_share_state(config: &Config) -> Option<Arc<PhotoShareState>> {
+async fn photo_share_state(config: &Config) -> Option<Arc<ImmichSharedPhotosFetcher>> {
     let photo_share = &config.photo_share;
     if photo_share.token_secret.is_empty() || photo_share.token_secret == "placeholder" {
         log::warn!("photo_share.token_secret is a placeholder; photo share routes disabled");
@@ -51,8 +46,8 @@ async fn photo_share_state(config: &Config) -> Option<Arc<PhotoShareState>> {
         return None;
     };
 
-    Some(Arc::new(PhotoShareState {
-        service: ImageService::new(repository),
+    Some(Arc::new(ImmichSharedPhotosFetcher {
+        service: Arc::new(ImageService::new(repository)),
         signer: TokenSigner::new(photo_share.token_secret.clone()),
         public_base_url: config.public_base_url.clone(),
     }))
@@ -64,6 +59,11 @@ where
 {
     let s = include_str!("../../data.json");
     serde_json::from_str(s).unwrap()
+}
+
+#[topcoat::router::route(GET "/image/{token}")]
+async fn image_bytes(cx: &topcoat::context::Cx) -> topcoat::Result<topcoat::router::response::Response> {
+    inbound::images::image_bytes::<ImmichImageRepository>(cx).await
 }
 
 #[tokio::main]
@@ -83,7 +83,7 @@ async fn main() {
         "cdn.seanaye.ca",
     );
 
-    let mut router = app::router(
+    let mut router = app::web::router(
         photos,
         share_state.clone(),
         bucket.with_prefix(PathBuf::from("public")),
@@ -92,7 +92,10 @@ async fn main() {
 
     if let Some(share_state) = share_state {
         log::info!("photo share enabled at /photo/{{token}} and /image/{{token}}");
-        router = router.with(share_state).route(photo_share::image_bytes);
+        router = router
+            .with(share_state.service.clone())
+            .with(share_state.signer.clone())
+            .route(image_bytes);
     }
 
     let assets = AssetBundle::load()

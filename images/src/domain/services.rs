@@ -1,5 +1,5 @@
-use crate::{
-    domain::{Image, ImageBytes, ImageCursor, ImageDateRange, ImageId, ImagePage, ImageSize},
+use crate::domain::{
+    models::{Image, ImageBytes, ImageCursor, ImageDateRange, ImageId, ImagePage, ImageSize},
     ports::ImageRepository,
 };
 
@@ -73,8 +73,8 @@ mod tests {
     use url::Url;
 
     use crate::{
-        adapters::memory::InMemoryImageRepository,
-        domain::{Image, ImageDimensions, ImageId, ImageVariant},
+        domain::models::{Image, ImageDimensions, ImageId, ImageVariant},
+        outbound::memory::InMemoryImageRepository,
     };
 
     use super::*;

@@ -17,8 +17,8 @@ use reqwest::header::{HeaderMap, HeaderValue, CONTENT_TYPE};
 use url::Url;
 use uuid::Uuid;
 
-use crate::{
-    domain::{
+use crate::domain::{
+    models::{
         Image, ImageBytes, ImageCursor, ImageDateRange, ImageDimensions, ImageError, ImageId,
         ImageMetadata, ImagePage, ImageSize, ImageVariant,
     },

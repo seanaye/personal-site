@@ -13,7 +13,8 @@ use topcoat::{
 };
 
 use crate::{
-    components::photo_grid_component, domain::ports::SharedPhotosFetcher, layout_content,
+    domain::ports::SharedPhotosFetcher,
+    web::{components::photo_grid_component, layout_content},
 };
 
 path_param!(token);

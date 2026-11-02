@@ -30,7 +30,7 @@ pub(crate) fn document_palette_style(cx: &Cx) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::components::{debug_poline, liquid_canvas, nav_bar, static_canvas};
+    use crate::web::components::{debug_poline, liquid_canvas, nav_bar, static_canvas};
     use liquid::{
         color::{canvas_background_style, rgb_css},
         palette::PolineManager,
