@@ -169,7 +169,6 @@
               cargo build --release -p frontend --target wasm32-unknown-unknown
 
               mkdir -p target/site/pkg
-              cp -r public/. target/site/
               wasm-bindgen \
                 --target web \
                 --out-dir target/site/pkg \

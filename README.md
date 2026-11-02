@@ -22,7 +22,7 @@ The browser registers these light-DOM custom elements over server-rendered marku
 - `<poline-palette>` updates the color swatches along the left edge.
 - `<hue-slider>` saves its raw value (0–360) in a site-wide `liquid-hue-v2` cookie. SSR uses that value directly for the slider and adds the fixed 171° offset to generate the Poline background and palette before WASM loads.
 
-The WGSL simulation and display shaders remain in `frontend/src/shaders/`. Topcoat's Cargo build integration compiles Tailwind 4.3.3 with CSS-native configuration and serves the result as a content-hashed asset.
+The WGSL simulation and display shaders remain in `frontend/src/shaders/`. Topcoat's Cargo build integration compiles Tailwind 4.3.3 with CSS-native configuration and serves the result as a content-hashed asset. The avatar, favicon, and bootstrap script use `asset!` and ship in the same bundle; only generated JS/WASM is served from `target/site/pkg/` at `/pkg/`.
 
 ## Development
 

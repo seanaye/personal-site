@@ -6,6 +6,7 @@ use pulldown_cmark::{Options, Parser, html};
 use rand::seq::SliceRandom;
 use topcoat::{
     Result,
+    asset::asset,
     context::{Cx, context},
     router::{
         HeaderValue, Router, RouterBuilder, Slot, StatusCode,
@@ -75,7 +76,8 @@ async fn root_layout(cx: &Cx, slot: Slot<'_>) -> Result<impl View> {
                 <meta name="viewport" content="width=device-width, initial-scale=1">
                 <title>(title)</title>
                 <link id="site-css" rel="stylesheet" href=(tailwind::stylesheet!())>
-                <script type="module" src="/bootstrap.js"></script>
+                <link rel="icon" href=(asset!("../../public/favicon.ico"))>
+                <script type="module" src=(asset!("../../public/bootstrap.js"))></script>
             </head>
             <body>
                 <main class="relative">
@@ -124,7 +126,7 @@ async fn bio() -> Result<impl View> {
                     <div class="flex-shrink-0 flex items-center px-4">
                         <img
                             class="h-32 w-32 border border-gray-300 text-gray-300 object-contain rounded-full mx-auto"
-                            src="/avatar.jpg"
+                            src=(asset!("../../public/avatar.jpg"))
                             alt="Headshot of Sean Aye"
                         >
                     </div>

@@ -11,7 +11,6 @@ WORKDIR /app
 COPY . .
 
 RUN mkdir -p target/site/pkg \
-    && cp -r public/. target/site/ \
     && cargo build --release -p server \
     && cargo build --release -p frontend --target wasm32-unknown-unknown \
     && wasm-bindgen \

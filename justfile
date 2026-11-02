@@ -15,10 +15,9 @@ dev-server:
 dev-frontend:
     cargo watch -w frontend -w liquid -w grid -- just frontend
 
-# Copy fixed public assets into the served site directory.
+# Prepare the directory served for generated JS/WASM.
 site:
     mkdir -p target/site/pkg
-    cp -r public/. target/site/
 
 # Build the custom elements and generate their ES-module loader.
 frontend: site

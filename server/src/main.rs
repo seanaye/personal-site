@@ -18,7 +18,6 @@ mod bucket;
 mod config;
 mod photo_share;
 mod sign;
-mod static_assets;
 
 /// Build the photo-share state from the app configuration.
 ///
@@ -90,11 +89,7 @@ async fn main() {
         shared_photos_fetcher,
         bucket.with_prefix(PathBuf::from("public")),
     )
-    .serve_dir("/pkg/{*file}", format!("{site_root}/pkg"))
-    .route(static_assets::avatar)
-    .route(static_assets::favicon)
-    .route(static_assets::noise)
-    .route(static_assets::bootstrap);
+    .serve_dir("/pkg/{*file}", format!("{site_root}/pkg"));
     if let Some(share_state) = share_state {
         log::info!("photo share enabled at /photo/{{token}} and /image/{{token}}");
         router = router.with(share_state).route(photo_share::image_bytes);
