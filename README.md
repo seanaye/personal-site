@@ -70,7 +70,15 @@ Topcoat downloads and caches the pinned Tailwind CLI automatically; no separate 
 - `/search?a=...&b=...&r=...` — filtered photo grid
 - `/photo/{token}` — signed shared-photo page
 - `/image/{token}?size=thumbnail|preview|fullsize` — signed streaming image bytes
-- `/file/{path...}` — unsigned redirect to `https://cdn.seanaye.ca/public/{path...}`
+- `/file/{path...}` — redirect to a one-hour presigned R2 URL for `public/{path...}`
+
+## Private R2 downloads
+
+`data.json` stores unsigned S3 URLs under `https://ce4df2c17b89e05aec7b31303383defe.r2.cloudflarestorage.com/personal-photos/`. The bucket adapter uses the configured R2 credentials to generate one-hour SigV4 GET URLs for each gallery response and `/file/...` redirect. Signing is local: image bytes go directly from R2 to the browser. The cached catalog never stores expiring signatures, and URLs from another origin or bucket are rejected.
+
+Configure `r2.account_id`, `r2.bucket_name`, `r2.access_key`, and `r2.secret_key` in `secrets.json` (and the encrypted deployment configuration). The account and bucket must match the catalog; the credentials must grant object-read access to that bucket. Reload a gallery page to renew URLs after an hour, including images that have not yet lazy-loaded. The public pages and file route still issue links to any visitor; this makes direct bucket access require a signature, not the website itself private. Immich share links are unchanged.
+
+After deploying and verifying signed downloads, disable/remove the old `cdn.seanaye.ca` R2 custom domain, disable the public `r2.dev` URL, and remove any other public bucket domains. These Cloudflare settings are a separate manual cutover; changing this code does not disable existing public access. No Worker or WAF rule is required.
 
 ## Full-size photos
 

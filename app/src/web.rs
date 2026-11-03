@@ -45,9 +45,9 @@ pub fn router<T: BucketStorage, S: SharedPhotosFetcher>(
         .page(file_page::<T>::default())
         .page(blog_page)
         .page(blog_post_page)
-        .page(photo_page)
+        .page(photo_page::<T>::default())
         .page(photo_share::shared_photo_page::<S>::default())
-        .page(search_page)
+        .page(search_page::<T>::default())
         .page(not_found)
         .with(photos)
         .with(bucket);
@@ -339,7 +339,7 @@ async fn blog_post_page(cx: &Cx) -> Result<impl View> {
 }
 
 #[page("/photo")]
-async fn photo_page() -> Result<impl View> {
+async fn photo_page<T: BucketStorage>() -> Result<impl View> {
     let photo_filter = SearchFilter {
         before: Some(1727827200),
         after: None,
@@ -352,7 +352,7 @@ async fn photo_page() -> Result<impl View> {
                 <div class="prose font-mono">
                     markdown(content: include_str!("content/photo.md"))
                 </div>
-                filtered_photo_grid(f: photo_filter, random: true)
+                filtered_photo_grid::<T>(f: photo_filter, random: true)
             )
         </div>
     })
@@ -369,7 +369,7 @@ struct SearchQuery {
 }
 
 #[page("/search")]
-async fn search_page(cx: &Cx) -> Result<impl View> {
+async fn search_page<T: BucketStorage>(cx: &Cx) -> Result<impl View> {
     let filter = query_params::<SearchQuery>(cx)
         .map(|query| SearchFilter {
             before: query.before,
@@ -381,14 +381,18 @@ async fn search_page(cx: &Cx) -> Result<impl View> {
     Ok(view! {
         <aside class="contents">
             layout_content(
-                filtered_photo_grid(f: filter, random: false)
+                filtered_photo_grid::<T>(f: filter, random: false)
             )
         </aside>
     })
 }
 
 #[component]
-async fn filtered_photo_grid(cx: &Cx, f: SearchFilter, random: bool) -> Result<impl View> {
+async fn filtered_photo_grid<T: BucketStorage>(
+    cx: &Cx,
+    f: SearchFilter,
+    random: bool,
+) -> Result<impl View> {
     let data: &Arc<[PhotoLayoutData]> = context(cx);
     let mut grid = data
         .iter()
@@ -398,6 +402,21 @@ async fn filtered_photo_grid(cx: &Cx, f: SearchFilter, random: bool) -> Result<i
 
     if random {
         grid.shuffle(&mut rand::thread_rng());
+    }
+
+    // Keep the cached catalog unsigned. Each response gets a fresh lifetime,
+    // including any full-resolution link targets.
+    let bucket: &T = context(cx);
+    for photo in &mut grid {
+        for src in &mut photo.srcs {
+            src.url = bucket
+                .sign_url(&src.url)
+                .await
+                .map_err(topcoat::Error::msg)?;
+        }
+        if let Some(href) = &mut photo.href {
+            *href = bucket.sign_url(href).await.map_err(topcoat::Error::msg)?;
+        }
     }
 
     Ok(view! { photo_grid_component(data: grid) })

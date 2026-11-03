@@ -1,3 +1,6 @@
+use images::{ImageService, outbound::ImmichImageRepository};
+use photogrid::PhotoLayoutData;
+use serde::de::DeserializeOwned;
 use server::config::{AppConfig, Config};
 use server::domain::services::sign::TokenSigner;
 use server::inbound;
@@ -5,9 +8,6 @@ use server::outbound::{
     bucket::{BucketAccess, get_bucket},
     photo_share::ImmichSharedPhotosFetcher,
 };
-use images::{ImageService, outbound::ImmichImageRepository};
-use photogrid::PhotoLayoutData;
-use serde::de::DeserializeOwned;
 use std::{path::PathBuf, sync::Arc};
 use topcoat::{
     asset::{AssetBundle, RouterBuilderAssetExt},
@@ -62,7 +62,9 @@ where
 }
 
 #[topcoat::router::route(GET "/image/{token}")]
-async fn image_bytes(cx: &topcoat::context::Cx) -> topcoat::Result<topcoat::router::response::Response> {
+async fn image_bytes(
+    cx: &topcoat::context::Cx,
+) -> topcoat::Result<topcoat::router::response::Response> {
     inbound::images::image_bytes::<ImmichImageRepository>(cx).await
 }
 
@@ -78,10 +80,7 @@ async fn main() {
 
     let share_state = photo_share_state(&app_config.inner).await;
     let site_root = std::env::var("SITE_ROOT").unwrap_or_else(|_| "target/site".to_owned());
-    let bucket = BucketAccess::new(
-        get_bucket(&app_config.inner.r2).expect("failed to get bucket"),
-        "cdn.seanaye.ca",
-    );
+    let bucket = BucketAccess::new(get_bucket(&app_config.inner.r2).expect("failed to get bucket"));
 
     let mut router = app::web::router(
         photos,

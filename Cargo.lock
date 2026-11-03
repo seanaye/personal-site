@@ -4464,6 +4464,7 @@ dependencies = [
  "itertools",
  "list-bucket",
  "log",
+ "percent-encoding",
  "photo-search",
  "photogrid",
  "rootcause",
