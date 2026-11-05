@@ -27,7 +27,7 @@ use components::*;
 
 use crate::domain::{
     ports::{BucketStorage, SharedPhotosFetcher},
-    services::blog::{BLOG_POSTS, blog_post, can_show_post},
+    services::blog::{blog_post, can_show_post},
 };
 
 not_found!("/");
@@ -272,13 +272,9 @@ fn show_drafts(cx: &Cx) -> bool {
 
 const PROSE_CLASSES: &str = "prose font-mono [--tw-prose-body:currentColor] [--tw-prose-headings:currentColor] [--tw-prose-links:currentColor] [--tw-prose-bold:currentColor] [--tw-prose-counters:currentColor] [--tw-prose-bullets:currentColor] [--tw-prose-hr:currentColor] [--tw-prose-quotes:currentColor] [--tw-prose-quote-borders:currentColor] [--tw-prose-captions:currentColor] [--tw-prose-code:currentColor] [--tw-prose-pre-bg:var(--poline-code-background-color)] [--tw-prose-pre-code:var(--poline-code-text-color)] [--tw-prose-th-borders:currentColor] [--tw-prose-td-borders:currentColor] [&_code]:[text-shadow:none] [&_pre]:[text-shadow:none] prose-a:transition-opacity hover:prose-a:opacity-75";
 
-#[page("/blog")]
+#[page("/garden")]
 async fn blog_page(cx: &Cx) -> Result<impl View> {
-    let show_drafts = show_drafts(cx);
-    let posts = BLOG_POSTS
-        .iter()
-        .filter(|post| can_show_post(post, show_drafts))
-        .collect::<Vec<_>>();
+    let _show_drafts = show_drafts(cx);
 
     Ok(view! {
         <section class="contents">
@@ -286,25 +282,8 @@ async fn blog_page(cx: &Cx) -> Result<impl View> {
                 layout_content(
                     poline_text(
                         <div class=(PROSE_CLASSES)>
-                            <h1>"blog"</h1>
-                            if posts.is_empty() {
-                                <p>"No posts yet."</p>
-                            } else {
-                                for post in posts {
-                                    let href = if show_drafts {
-                                        format!("/blog/{}?draft=true", post.slug)
-                                    } else {
-                                        format!("/blog/{}", post.slug)
-                                    };
-                                    <article>
-                                        <h2><a href=(href)>(post.title)</a></h2>
-                                        match post.excerpt {
-                                            Some(excerpt) => <p>(excerpt)</p>,
-                                            None => "",
-                                        }
-                                    </article>
-                                }
-                            }
+                            <h1>"Digital Garden"</h1>
+                                <p>"Under construction"</p>
                         </div>
                     )
                 )
