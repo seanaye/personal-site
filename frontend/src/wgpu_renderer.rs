@@ -38,6 +38,7 @@ pub struct WgpuLiquidRenderer {
     device: wgpu::Device,
     queue: wgpu::Queue,
     surface: wgpu::Surface<'static>,
+    surface_view_format: wgpu::TextureFormat,
 
     // Ping-pong simulation textures (Rg32Float)
     tex_a_view: wgpu::TextureView,
@@ -239,6 +240,15 @@ impl WgpuLiquidRenderer {
             .copied()
             .unwrap_or(surface_caps.formats[0]);
 
+        // Native WebGPU exposes an unorm canvas rather than an sRGB canvas.
+        // Explicitly allow an sRGB view so its output encoding matches both
+        // the WebGL sRGB surface and the CSS background fallback.
+        let surface_view_format = surface_format.add_srgb_suffix();
+        let view_formats = (surface_view_format != surface_format)
+            .then_some(surface_view_format)
+            .into_iter()
+            .collect();
+
         let surface_config = wgpu::SurfaceConfiguration {
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
             format: surface_format,
@@ -246,7 +256,7 @@ impl WgpuLiquidRenderer {
             height,
             present_mode: wgpu::PresentMode::AutoVsync,
             alpha_mode: surface_caps.alpha_modes[0],
-            view_formats: vec![],
+            view_formats,
             desired_maximum_frame_latency: 2,
         };
         surface.configure(&device, &surface_config);
@@ -460,7 +470,7 @@ impl WgpuLiquidRenderer {
                 module: &display_shader,
                 entry_point: Some("fs"),
                 targets: &[Some(wgpu::ColorTargetState {
-                    format: surface_format,
+                    format: surface_view_format,
                     blend: None,
                     write_mask: wgpu::ColorWrites::ALL,
                 })],
@@ -510,6 +520,7 @@ impl WgpuLiquidRenderer {
             device,
             queue,
             surface,
+            surface_view_format,
             tex_a_view,
             tex_b_view,
             sim_pipeline,
@@ -558,7 +569,11 @@ impl WgpuLiquidRenderer {
         self.update_palette_if_needed(poline);
 
         let output = self.surface.get_current_texture()?;
-        let surface_view = output.texture.create_view(&Default::default());
+        let surface_view = output.texture.create_view(&wgpu::TextureViewDescriptor {
+            label: Some("liquid_surface_srgb_view"),
+            format: Some(self.surface_view_format),
+            ..Default::default()
+        });
 
         let mut encoder = self
             .device

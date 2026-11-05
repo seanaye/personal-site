@@ -6,6 +6,8 @@
 // the rendered waves traverse the whole 256-color Poline palette instead of only
 // sampling the middle few colors.
 const RIPPLE_PALETTE_GAIN: f32 = 4.0;
+// Keep in sync with CANVAS_RESTING_PALETTE_INDEX in liquid/src/color.rs.
+const RESTING_PALETTE_INDEX: f32 = 128.0;
 
 @vertex
 fn vs(@builtin(vertex_index) idx: u32) -> @builtin(position) vec4f {
@@ -19,7 +21,7 @@ fn fs(@builtin(position) frag_coord: vec4f) -> @location(0) vec4f {
     let coord = vec2i(frag_coord.xy);
     let value = textureLoad(sim_tex, coord, 0).r;
 
-    let palette_idx = clamp(i32(value * RIPPLE_PALETTE_GAIN + 128.0), 0, 255);
+    let palette_idx = clamp(i32(value * RIPPLE_PALETTE_GAIN + RESTING_PALETTE_INDEX), 0, 255);
     let color = textureLoad(palette_tex, vec2i(palette_idx, 0), 0);
     return vec4f(color.rgb, 1.0);
 }

@@ -4,6 +4,8 @@ pub const DEFAULT_HUE_OFFSET_DEGREES: f64 = 171.0;
 /// Stores the raw range-input value (0–360), not the offset Poline hue.
 pub const SLIDER_COOKIE_NAME: &str = "liquid-hue-v2";
 pub const HUE_CHANGE_EVENT: &str = "liquid-hue-change";
+/// Palette entry sampled by the display shader when there is no displacement.
+pub const CANVAS_RESTING_PALETTE_INDEX: usize = 128;
 
 /// Only accept finite values within the range input's bounds, including zero.
 pub fn parse_slider_value(value: &str) -> Option<f64> {
@@ -69,7 +71,7 @@ fn contrast_ratio(a: [u8; 3], b: [u8; 3]) -> f64 {
 
 pub fn canvas_background_color(colors: &[[u8; 3]]) -> [u8; 3] {
     colors
-        .get(colors.len() / 2)
+        .get(CANVAS_RESTING_PALETTE_INDEX)
         .copied()
         .map(canvas_display_color)
         .unwrap_or([0, 0, 0])
@@ -174,6 +176,18 @@ mod tests {
         assert_eq!(slider_value, 90.0);
         let palette = palette_for_slider(slider_value);
         assert_eq!(*palette.abs_hue(), 90.0 + DEFAULT_HUE_OFFSET_DEGREES);
+    }
+
+    #[test]
+    fn canvas_background_uses_the_shaders_resting_palette_entry() {
+        let mut colors = vec![[0, 0, 0]; 258];
+        colors[CANVAS_RESTING_PALETTE_INDEX] = [64, 128, 192];
+        colors[CANVAS_RESTING_PALETTE_INDEX + 1] = [192, 128, 64];
+
+        assert_eq!(
+            canvas_background_color(&colors),
+            canvas_display_color(colors[CANVAS_RESTING_PALETTE_INDEX])
+        );
     }
 
     #[test]
