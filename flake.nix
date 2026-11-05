@@ -97,7 +97,7 @@
             siteFilter =
               path: type:
               (builtins.match ".*/public(/.*)?" path != null)
-              || (builtins.match ".*/blog(/.*)?" path != null)
+              || (builtins.match ".*/garden(/.*)?" path != null)
               || (builtins.match ".*/app/src/content(/.*)?" path != null)
               || (builtins.match ".*/immich-sdk/openapi(/.*)?" path != null)
               || (builtins.match ".*/app/tailwind.css$" path != null)

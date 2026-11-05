@@ -29,7 +29,7 @@ pub async fn nav_bar(cx: &Cx) -> Result<impl View> {
         >
             <div class="flex gap-5 sm:gap-8">
                 <a href="/" class="transition-opacity hover:opacity-75">"home"</a>
-                <a href="/blog" class="transition-opacity hover:opacity-75">"blog"</a>
+                <a href="/garden" class="transition-opacity hover:opacity-75">"garden"</a>
                 <a href="/photo" class="transition-opacity hover:opacity-75">"photography"</a>
             </div>
             <hue-slider class="contents">

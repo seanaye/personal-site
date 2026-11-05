@@ -25,10 +25,7 @@ mod style;
 
 use components::*;
 
-use crate::domain::{
-    ports::{BucketStorage, SharedPhotosFetcher},
-    services::blog::{blog_post, can_show_post},
-};
+use crate::domain::ports::{BucketStorage, SharedPhotosFetcher};
 
 not_found!("/");
 
@@ -43,8 +40,8 @@ pub fn router<T: BucketStorage, S: SharedPhotosFetcher>(
         .layout(root_layout)
         .page(home_page)
         .page(file_page::<T>::default())
-        .page(blog_page)
-        .page(blog_post_page)
+        .page(garden_home_page)
+        .page(garden_page)
         .page(photo_page::<T>::default())
         .page(photo_share::shared_photo_page::<S>::default())
         .page(search_page::<T>::default())
@@ -259,12 +256,12 @@ async fn markdown(content: &str) -> Result<impl View> {
 }
 
 #[query_params]
-struct BlogQuery {
+struct GardenQuery {
     draft: Option<String>,
 }
 
 fn show_drafts(cx: &Cx) -> bool {
-    query_params::<BlogQuery>(cx)
+    query_params::<GardenQuery>(cx)
         .ok()
         .and_then(|query| query.draft.as_deref())
         == Some("true")
@@ -273,7 +270,7 @@ fn show_drafts(cx: &Cx) -> bool {
 const PROSE_CLASSES: &str = "prose font-mono [--tw-prose-body:currentColor] [--tw-prose-headings:currentColor] [--tw-prose-links:currentColor] [--tw-prose-bold:currentColor] [--tw-prose-counters:currentColor] [--tw-prose-bullets:currentColor] [--tw-prose-hr:currentColor] [--tw-prose-quotes:currentColor] [--tw-prose-quote-borders:currentColor] [--tw-prose-captions:currentColor] [--tw-prose-code:currentColor] [--tw-prose-pre-bg:var(--poline-code-background-color)] [--tw-prose-pre-code:var(--poline-code-text-color)] [--tw-prose-th-borders:currentColor] [--tw-prose-td-borders:currentColor] [&_code]:[text-shadow:none] [&_pre]:[text-shadow:none] prose-a:transition-opacity hover:prose-a:opacity-75";
 
 #[page("/garden")]
-async fn blog_page(cx: &Cx) -> Result<impl View> {
+async fn garden_home_page(cx: &Cx) -> Result<impl View> {
     let _show_drafts = show_drafts(cx);
 
     Ok(view! {
@@ -294,10 +291,9 @@ async fn blog_page(cx: &Cx) -> Result<impl View> {
 
 path_param!(slug);
 
-#[page("/blog/{slug}")]
-async fn blog_post_page(cx: &Cx) -> Result<impl View> {
+#[page("/garden/{slug}")]
+async fn garden_page(cx: &Cx) -> Result<impl View> {
     let show_drafts = show_drafts(cx);
-    let post = blog_post(path_param::<Slug>(cx)).filter(|post| can_show_post(post, show_drafts));
 
     Ok(view! {
         <article class="contents">
@@ -305,10 +301,7 @@ async fn blog_post_page(cx: &Cx) -> Result<impl View> {
                 layout_content(
                     poline_text(
                         <div class=(PROSE_CLASSES) style="text-shadow: none;">
-                            match post {
-                                Some(post) => markdown(content: post.content),
-                                None => <p>"Post not found."</p>,
-                            }
+                            <p>"Post not found."</p>
                         </div>
                     )
                 )
