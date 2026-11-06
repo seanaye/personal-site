@@ -111,7 +111,18 @@
             filter = srcFilter;
           };
 
-        cargoVendorDir = craneLib.vendorCargoDeps { inherit src; };
+        cargoVendorDir = craneLib.vendorCargoDeps {
+          inherit src;
+          # Fetch git dependencies directly by locked revision. Topcoat's pin is
+          # no longer reachable from a branch after a rebase, which builtins.fetchGit
+          # cannot handle even though GitHub still serves the commit directly.
+          outputHashes = {
+            "git+https://github.com/seanaye/poline-rs#16a07ce9e8086a5860527794a8ea1757a5a7641e" =
+              "sha256-s/n4Q8j+Z9YCDgVfAANi3Eih35g10c1ndINVfgEYI/4=";
+            "git+https://github.com/seanaye/topcoat?rev=9a039d010e9fd75ba4f33ef2ed60ea8c04b79a77#9a039d010e9fd75ba4f33ef2ed60ea8c04b79a77" =
+              "sha256-A4VukPZ5k0gPt7j03TgQrM1+J36pW08IfGz09ahF1lA=";
+          };
+        };
 
         commonArgs = {
           inherit src cargoVendorDir;
